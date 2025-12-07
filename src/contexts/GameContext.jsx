@@ -12,6 +12,7 @@ export function useGame() {
 export const TEAMS = {
   ASTON_VILLA: {
     name: 'Aston Villa',
+    shortName: 'AV',
     color: '#670E36',
     players: [
       { position: [-1.2, 0.05, 2.5], number: 5, name: 'McGrath' },
@@ -24,6 +25,7 @@ export const TEAMS = {
   },
   PRESTON: {
     name: 'Preston North End',
+    shortName: 'PNE',
     color: '#FFFFFF',
     players: [
       { position: [-1.2, 0.05, -2.5], number: 5, name: 'Lawrenson' },
