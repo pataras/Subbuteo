@@ -1,6 +1,6 @@
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody, CuboidCollider } from '@react-three/rapier'
 
-// Green pitch/playing surface with sponsorship boarding
+// Green pitch/playing surface with stadium stands
 function Pitch() {
   // Pitch dimensions (50% bigger than original 4x6)
   const pitchWidth = 6
@@ -12,7 +12,13 @@ function Pitch() {
   const boardingHeight = 0.15
   const boardingThickness = 0.08
 
-  // Sponsor colors for variety
+  // Stadium stand dimensions
+  const standHeight = 1.5
+  const standDepth = 1.2
+  const standColor = '#2c3e50' // Dark blue-gray for stands
+  const seatColor = '#e74c3c' // Red seats
+
+  // Sponsor colors for variety (for side boards only)
   const sponsorColors = [
     '#e63946', // Red
     '#1d3557', // Dark blue
@@ -190,26 +196,35 @@ function Pitch() {
         <boxGeometry args={[0.02, 0.02, 0.15]} />
         <meshStandardMaterial color="#aaaaaa" />
       </mesh>
-      {/* Net (back) */}
+      {/* Net (back) - visual mesh */}
       <mesh position={[0, 0.125, -halfLength - 0.15]}>
         <planeGeometry args={[0.7, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (left side) */}
+      {/* Net (left side) - visual mesh */}
       <mesh position={[-0.35, 0.125, -halfLength - 0.075]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[0.15, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (right side) */}
+      {/* Net (right side) - visual mesh */}
       <mesh position={[0.35, 0.125, -halfLength - 0.075]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[0.15, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (top) */}
+      {/* Net (top) - visual mesh */}
       <mesh position={[0, 0.25, -halfLength - 0.075]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.7, 0.15]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
+      {/* Top goal net physics colliders - rigid walls to stop the ball */}
+      {/* Back net collider */}
+      <CuboidCollider args={[0.35, 0.125, 0.01]} position={[0, 0.125, -halfLength - 0.15]} />
+      {/* Left side net collider */}
+      <CuboidCollider args={[0.01, 0.125, 0.075]} position={[-0.35, 0.125, -halfLength - 0.075]} />
+      {/* Right side net collider */}
+      <CuboidCollider args={[0.01, 0.125, 0.075]} position={[0.35, 0.125, -halfLength - 0.075]} />
+      {/* Top net collider */}
+      <CuboidCollider args={[0.35, 0.01, 0.075]} position={[0, 0.25, -halfLength - 0.075]} />
 
       {/* Bottom goal (Aston Villa end) */}
       {/* Left post */}
@@ -250,28 +265,37 @@ function Pitch() {
         <boxGeometry args={[0.02, 0.02, 0.15]} />
         <meshStandardMaterial color="#aaaaaa" />
       </mesh>
-      {/* Net (back) */}
+      {/* Net (back) - visual mesh */}
       <mesh position={[0, 0.125, halfLength + 0.15]}>
         <planeGeometry args={[0.7, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (left side) */}
+      {/* Net (left side) - visual mesh */}
       <mesh position={[-0.35, 0.125, halfLength + 0.075]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[0.15, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (right side) */}
+      {/* Net (right side) - visual mesh */}
       <mesh position={[0.35, 0.125, halfLength + 0.075]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[0.15, 0.25]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
-      {/* Net (top) */}
+      {/* Net (top) - visual mesh */}
       <mesh position={[0, 0.25, halfLength + 0.075]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.7, 0.15]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
       </mesh>
+      {/* Bottom goal net physics colliders - rigid walls to stop the ball */}
+      {/* Back net collider */}
+      <CuboidCollider args={[0.35, 0.125, 0.01]} position={[0, 0.125, halfLength + 0.15]} />
+      {/* Left side net collider */}
+      <CuboidCollider args={[0.01, 0.125, 0.075]} position={[-0.35, 0.125, halfLength + 0.075]} />
+      {/* Right side net collider */}
+      <CuboidCollider args={[0.01, 0.125, 0.075]} position={[0.35, 0.125, halfLength + 0.075]} />
+      {/* Top net collider */}
+      <CuboidCollider args={[0.35, 0.01, 0.075]} position={[0, 0.25, halfLength + 0.075]} />
 
-      {/* Sponsorship Boarding - Left side */}
+      {/* Sponsorship Boarding - Left side (advertising boards at pitch level) */}
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <mesh
           key={`left-${i}`}
@@ -283,7 +307,7 @@ function Pitch() {
         </mesh>
       ))}
 
-      {/* Sponsorship Boarding - Right side */}
+      {/* Sponsorship Boarding - Right side (advertising boards at pitch level) */}
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <mesh
           key={`right-${i}`}
@@ -295,46 +319,81 @@ function Pitch() {
         </mesh>
       ))}
 
-      {/* Sponsorship Boarding - Back (behind far goal) */}
-      {[0, 1, 2, 3].map((i) => (
-        <mesh
-          key={`back-${i}`}
-          position={[-halfWidth + 0.75 + i * 1.5, boardingHeight / 2, -halfLength - boardingThickness / 2]}
-          castShadow
-        >
-          <boxGeometry args={[1.5, boardingHeight, boardingThickness]} />
-          <meshStandardMaterial color={sponsorColors[(i + 1) % sponsorColors.length]} />
-        </mesh>
-      ))}
+      {/* STADIUM STANDS - Four sides */}
 
-      {/* Sponsorship Boarding - Front (behind near goal) */}
-      {[0, 1, 2, 3].map((i) => (
-        <mesh
-          key={`front-${i}`}
-          position={[-halfWidth + 0.75 + i * 1.5, boardingHeight / 2, halfLength + boardingThickness / 2]}
-          castShadow
-        >
-          <boxGeometry args={[1.5, boardingHeight, boardingThickness]} />
-          <meshStandardMaterial color={sponsorColors[(i + 2) % sponsorColors.length]} />
+      {/* Left Stand (west side) - visible */}
+      <group position={[-halfWidth - standDepth / 2 - boardingThickness, 0, 0]}>
+        {/* Main stand structure */}
+        <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[standDepth, standHeight, pitchLength]} />
+          <meshStandardMaterial color={standColor} />
         </mesh>
-      ))}
+        {/* Tiered seating effect - rows of seats */}
+        {[0, 1, 2, 3, 4].map((row) => (
+          <mesh
+            key={`left-seats-${row}`}
+            position={[standDepth / 4 - row * 0.15, 0.3 + row * 0.25, 0]}
+            castShadow
+          >
+            <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
+            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#c0392b'} />
+          </mesh>
+        ))}
+      </group>
 
-      {/* Corner pieces to close gaps */}
-      <mesh position={[-halfWidth - boardingThickness / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
-        <boxGeometry args={[boardingThickness, boardingHeight, boardingThickness]} />
-        <meshStandardMaterial color="#333333" />
+      {/* Right Stand (east side) - visible */}
+      <group position={[halfWidth + standDepth / 2 + boardingThickness, 0, 0]}>
+        {/* Main stand structure */}
+        <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[standDepth, standHeight, pitchLength]} />
+          <meshStandardMaterial color={standColor} />
+        </mesh>
+        {/* Tiered seating effect - rows of seats */}
+        {[0, 1, 2, 3, 4].map((row) => (
+          <mesh
+            key={`right-seats-${row}`}
+            position={[-standDepth / 4 + row * 0.15, 0.3 + row * 0.25, 0]}
+            castShadow
+          >
+            <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
+            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#c0392b'} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Back Stand (behind far goal, north end) - visible */}
+      <group position={[0, 0, -halfLength - standDepth / 2 - 0.2]}>
+        {/* Main stand structure */}
+        <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[pitchWidth + standDepth * 2 + boardingThickness * 2, standHeight, standDepth]} />
+          <meshStandardMaterial color={standColor} />
+        </mesh>
+        {/* Tiered seating effect - rows of seats */}
+        {[0, 1, 2, 3, 4].map((row) => (
+          <mesh
+            key={`back-seats-${row}`}
+            position={[0, 0.3 + row * 0.25, standDepth / 4 - row * 0.15]}
+            castShadow
+          >
+            <boxGeometry args={[pitchWidth + standDepth * 2 - 0.2, 0.15, 0.08]} />
+            <meshStandardMaterial color={row % 2 === 0 ? '#3498db' : '#2980b9'} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Front Stand (behind near goal, south end) - HIDDEN (camera viewpoint side) */}
+      {/* This stand is invisible but we keep collision walls for the ball */}
+
+      {/* Corner stand pieces to fill gaps */}
+      {/* Back-left corner */}
+      <mesh position={[-halfWidth - standDepth / 2 - boardingThickness, standHeight / 2, -halfLength - standDepth / 2 - 0.2]} castShadow>
+        <boxGeometry args={[standDepth, standHeight, standDepth]} />
+        <meshStandardMaterial color={standColor} />
       </mesh>
-      <mesh position={[halfWidth + boardingThickness / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
-        <boxGeometry args={[boardingThickness, boardingHeight, boardingThickness]} />
-        <meshStandardMaterial color="#333333" />
-      </mesh>
-      <mesh position={[-halfWidth - boardingThickness / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
-        <boxGeometry args={[boardingThickness, boardingHeight, boardingThickness]} />
-        <meshStandardMaterial color="#333333" />
-      </mesh>
-      <mesh position={[halfWidth + boardingThickness / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
-        <boxGeometry args={[boardingThickness, boardingHeight, boardingThickness]} />
-        <meshStandardMaterial color="#333333" />
+      {/* Back-right corner */}
+      <mesh position={[halfWidth + standDepth / 2 + boardingThickness, standHeight / 2, -halfLength - standDepth / 2 - 0.2]} castShadow>
+        <boxGeometry args={[standDepth, standHeight, standDepth]} />
+        <meshStandardMaterial color={standColor} />
       </mesh>
 
       {/* Collision walls (invisible, at boarding positions) */}
@@ -348,7 +407,7 @@ function Pitch() {
         <boxGeometry args={[boardingThickness, boardingHeight * 2, pitchLength + boardingThickness * 2]} />
         <meshStandardMaterial transparent opacity={0} />
       </mesh>
-      {/* Front wall */}
+      {/* Front wall (camera side - still need collision) */}
       <mesh position={[0, boardingHeight / 2, halfLength + boardingThickness / 2]} visible={false}>
         <boxGeometry args={[pitchWidth + boardingThickness * 2, boardingHeight * 2, boardingThickness]} />
         <meshStandardMaterial transparent opacity={0} />
