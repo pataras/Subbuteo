@@ -93,7 +93,7 @@ function Pitch() {
       </mesh>
       {/* Penalty arc (semicircle outside the box) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 0.95]}>
-        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 0.7, Math.PI * 0.6]} />
+        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 0.2, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
@@ -135,7 +135,7 @@ function Pitch() {
       </mesh>
       {/* Penalty arc (semicircle outside the box) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 0.95]}>
-        <ringGeometry args={[0.77, 0.8, 32, 1, -Math.PI * 0.3, Math.PI * 0.6]} />
+        <ringGeometry args={[0.77, 0.8, 32, 1, -Math.PI * 0.8, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 

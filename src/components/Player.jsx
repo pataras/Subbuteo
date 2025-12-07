@@ -1,8 +1,8 @@
 import { useRef, forwardRef } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
-import { Text, Billboard } from '@react-three/drei'
+import { Text } from '@react-three/drei'
 
-// Subbuteo-style player figure with squashed hemisphere dome base
+// Subbuteo-style player figure with more human-like proportions
 const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000', number, name }, ref) {
   const baseRadius = 0.1
   const baseHeight = 0.045 // Squashed dome height
@@ -39,81 +39,117 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
           <meshStandardMaterial color="#1E90FF" />
         </mesh>
 
-        {/* Player torso/body */}
-        <mesh position={[0, baseHeight + playerHeight * 0.35, 0]} castShadow>
-          <cylinderGeometry args={[0.025, 0.04, playerHeight * 0.5, 16]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-
-        {/* Shorts */}
-        <mesh position={[0, baseHeight + playerHeight * 0.12, 0]} castShadow>
-          <cylinderGeometry args={[0.035, 0.03, playerHeight * 0.18, 16]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-
         {/* Legs - left */}
-        <mesh position={[-0.015, baseHeight + 0.01, 0]} castShadow>
-          <cylinderGeometry args={[0.012, 0.015, baseHeight * 0.8, 8]} />
+        <mesh position={[-0.018, baseHeight + 0.02, 0]} castShadow>
+          <cylinderGeometry args={[0.014, 0.016, 0.05, 8]} />
           <meshStandardMaterial color="#ffdbac" />
         </mesh>
 
         {/* Legs - right */}
-        <mesh position={[0.015, baseHeight + 0.01, 0]} castShadow>
-          <cylinderGeometry args={[0.012, 0.015, baseHeight * 0.8, 8]} />
+        <mesh position={[0.018, baseHeight + 0.02, 0]} castShadow>
+          <cylinderGeometry args={[0.014, 0.016, 0.05, 8]} />
           <meshStandardMaterial color="#ffdbac" />
         </mesh>
 
-        {/* Player head */}
-        <mesh position={[0, baseHeight + playerHeight * 0.65, 0]} castShadow>
-          <sphereGeometry args={[0.028, 16, 16]} />
+        {/* Shorts/hips - wider at hips */}
+        <mesh position={[0, baseHeight + playerHeight * 0.15, 0]} castShadow>
+          <cylinderGeometry args={[0.032, 0.038, playerHeight * 0.15, 16]} />
+          <meshStandardMaterial color="#ffffff" />
+        </mesh>
+
+        {/* Lower torso/waist - tapered */}
+        <mesh position={[0, baseHeight + playerHeight * 0.28, 0]} castShadow>
+          <cylinderGeometry args={[0.028, 0.032, playerHeight * 0.12, 16]} />
+          <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Upper torso/chest - broader shoulders */}
+        <mesh position={[0, baseHeight + playerHeight * 0.42, 0]} castShadow>
+          <cylinderGeometry args={[0.035, 0.028, playerHeight * 0.18, 16]} />
+          <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Shoulders - capsule shape for broader look */}
+        <mesh position={[0, baseHeight + playerHeight * 0.48, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <capsuleGeometry args={[0.018, 0.04, 4, 8]} />
+          <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Left arm - upper */}
+        <mesh position={[-0.048, baseHeight + playerHeight * 0.42, 0]} rotation={[0, 0, Math.PI * 0.15]} castShadow>
+          <cylinderGeometry args={[0.01, 0.012, 0.045, 8]} />
+          <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Left arm - forearm (skin) */}
+        <mesh position={[-0.055, baseHeight + playerHeight * 0.32, 0]} rotation={[0, 0, Math.PI * 0.1]} castShadow>
+          <cylinderGeometry args={[0.008, 0.01, 0.04, 8]} />
+          <meshStandardMaterial color="#ffdbac" />
+        </mesh>
+
+        {/* Right arm - upper */}
+        <mesh position={[0.048, baseHeight + playerHeight * 0.42, 0]} rotation={[0, 0, -Math.PI * 0.15]} castShadow>
+          <cylinderGeometry args={[0.01, 0.012, 0.045, 8]} />
+          <meshStandardMaterial color={color} />
+        </mesh>
+
+        {/* Right arm - forearm (skin) */}
+        <mesh position={[0.055, baseHeight + playerHeight * 0.32, 0]} rotation={[0, 0, -Math.PI * 0.1]} castShadow>
+          <cylinderGeometry args={[0.008, 0.01, 0.04, 8]} />
+          <meshStandardMaterial color="#ffdbac" />
+        </mesh>
+
+        {/* Neck */}
+        <mesh position={[0, baseHeight + playerHeight * 0.55, 0]} castShadow>
+          <cylinderGeometry args={[0.012, 0.014, 0.025, 8]} />
+          <meshStandardMaterial color="#ffdbac" />
+        </mesh>
+
+        {/* Player head - slightly oval */}
+        <mesh position={[0, baseHeight + playerHeight * 0.67, 0]} scale={[1, 1.15, 1]} castShadow>
+          <sphereGeometry args={[0.026, 16, 16]} />
           <meshStandardMaterial color="#ffdbac" />
         </mesh>
 
         {/* Hair */}
-        <mesh position={[0, baseHeight + playerHeight * 0.7, 0]} castShadow>
-          <sphereGeometry args={[0.025, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <mesh position={[0, baseHeight + playerHeight * 0.72, 0]} castShadow>
+          <sphereGeometry args={[0.024, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color="#4a3000" />
         </mesh>
 
-        {/* Arms - simple cylinder */}
-        <mesh position={[0, baseHeight + playerHeight * 0.45, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.012, 0.012, 0.09, 8]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-
-        {/* Shirt number - Billboard always faces camera */}
-        {number && (
-          <Billboard position={[0, baseHeight + playerHeight + 0.08, 0]} follow={true}>
+        {/* Number and name on back of shirt - fixed position, not billboard */}
+        <group position={[0, baseHeight + playerHeight * 0.38, -0.03]} rotation={[0, Math.PI, 0]}>
+          {/* Player name - above the number */}
+          {name && (
             <Text
-              fontSize={0.06}
+              position={[0, 0.032, 0]}
+              fontSize={0.02}
               color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
               anchorX="center"
               anchorY="middle"
               fontWeight="bold"
-              outlineWidth={0.003}
-              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
-            >
-              {number}
-            </Text>
-          </Billboard>
-        )}
-
-        {/* Player name - Billboard always faces camera */}
-        {name && (
-          <Billboard position={[0, baseHeight + playerHeight + 0.02, 0]} follow={true}>
-            <Text
-              fontSize={0.025}
-              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
-              anchorX="center"
-              anchorY="middle"
-              fontWeight="bold"
-              outlineWidth={0.002}
+              outlineWidth={0.0016}
               outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
             >
               {name.toUpperCase()}
             </Text>
-          </Billboard>
-        )}
+          )}
+          {/* Shirt number - below the name */}
+          {number && (
+            <Text
+              position={[0, 0, 0]}
+              fontSize={0.048}
+              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+              outlineWidth={0.0024}
+              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
+            >
+              {number}
+            </Text>
+          )}
+        </group>
       </group>
     </RigidBody>
   )
