@@ -413,8 +413,27 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
         </group>
       )}
 
-      {/* Front Stand (behind near goal, south end) - HIDDEN (camera viewpoint side) */}
-      {/* This stand is invisible but we keep collision walls for the ball */}
+      {/* Front Stand (behind near goal, south end) - conditionally visible based on camera position */}
+      {standVisibility.front && (
+        <group position={[0, 0, halfLength + standDepth / 2 + 0.2]}>
+          {/* Main stand structure */}
+          <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[pitchWidth + standDepth * 2 + boardingThickness * 2, standHeight, standDepth]} />
+            <meshStandardMaterial color={standColor} />
+          </mesh>
+          {/* Tiered seating effect - rows of seats */}
+          {[0, 1, 2, 3, 4].map((row) => (
+            <mesh
+              key={`front-seats-${row}`}
+              position={[0, 0.3 + row * 0.25, -standDepth / 4 + row * 0.15]}
+              castShadow
+            >
+              <boxGeometry args={[pitchWidth + standDepth * 2 - 0.2, 0.15, 0.08]} />
+              <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
+            </mesh>
+          ))}
+        </group>
+      )}
 
       {/* Corner stand pieces to fill gaps - only show when adjacent stands are visible */}
       {/* Back-left corner */}
@@ -427,6 +446,20 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
       {/* Back-right corner */}
       {(standVisibility.back || standVisibility.right) && (
         <mesh position={[halfWidth + standDepth / 2 + boardingThickness, standHeight / 2, -halfLength - standDepth / 2 - 0.2]} castShadow>
+          <boxGeometry args={[standDepth, standHeight, standDepth]} />
+          <meshStandardMaterial color={standColor} />
+        </mesh>
+      )}
+      {/* Front-left corner */}
+      {(standVisibility.front || standVisibility.left) && (
+        <mesh position={[-halfWidth - standDepth / 2 - boardingThickness, standHeight / 2, halfLength + standDepth / 2 + 0.2]} castShadow>
+          <boxGeometry args={[standDepth, standHeight, standDepth]} />
+          <meshStandardMaterial color={standColor} />
+        </mesh>
+      )}
+      {/* Front-right corner */}
+      {(standVisibility.front || standVisibility.right) && (
+        <mesh position={[halfWidth + standDepth / 2 + boardingThickness, standHeight / 2, halfLength + standDepth / 2 + 0.2]} castShadow>
           <boxGeometry args={[standDepth, standHeight, standDepth]} />
           <meshStandardMaterial color={standColor} />
         </mesh>
@@ -594,6 +627,71 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
               <mesh position={[0, 0.15, 0]} castShadow>
                 <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
                 <meshStandardMaterial color={['#ffffff', '#2a9d8f', '#f4a261', '#264653', '#e63946', '#1d3557'][i % 6]} />
+              </mesh>
+              <mesh position={[0, 0.32, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color="#ffdbac" />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      )}
+
+      {/* Front stand terrace - concrete stepped terrace behind the near goal */}
+      {standVisibility.front && (
+        <group position={[0, 0, halfLength + standDepth / 2 + 0.2]}>
+          {/* Stepped concrete terrace - 4 tiers */}
+          {[0, 1, 2, 3].map((tier) => (
+            <mesh key={`front-terrace-${tier}`} position={[0, 0.1 + tier * 0.2, -0.15 - tier * 0.2]} castShadow receiveShadow>
+              <boxGeometry args={[pitchWidth + standDepth * 2 - 0.4, 0.15, 0.25]} />
+              <meshStandardMaterial color={tier % 2 === 0 ? concreteColor : concreteDark} />
+            </mesh>
+          ))}
+          {/* Standing fans - Row 1 (front, lowest tier) */}
+          {[-3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((x, i) => (
+            <group key={`fan-front-1-${i}`} position={[x, 0.17, -0.15]}>
+              <mesh position={[0, 0.15, 0]} castShadow>
+                <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+                <meshStandardMaterial color={['#f4a261', '#2a9d8f', '#1d3557', '#e63946', '#ffffff', '#264653'][i % 6]} />
+              </mesh>
+              <mesh position={[0, 0.32, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color="#ffdbac" />
+              </mesh>
+            </group>
+          ))}
+          {/* Standing fans - Row 2 (second tier) */}
+          {[-3.25, -2.75, -2.25, -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25].map((x, i) => (
+            <group key={`fan-front-2-${i}`} position={[x, 0.37, -0.35]}>
+              <mesh position={[0, 0.15, 0]} castShadow>
+                <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+                <meshStandardMaterial color={['#264653', '#f4a261', '#e63946', '#2a9d8f', '#1d3557', '#ffffff'][i % 6]} />
+              </mesh>
+              <mesh position={[0, 0.32, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color="#ffdbac" />
+              </mesh>
+            </group>
+          ))}
+          {/* Standing fans - Row 3 (third tier) */}
+          {[-3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((x, i) => (
+            <group key={`fan-front-3-${i}`} position={[x, 0.57, -0.55]}>
+              <mesh position={[0, 0.15, 0]} castShadow>
+                <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+                <meshStandardMaterial color={['#1d3557', '#264653', '#ffffff', '#f4a261', '#2a9d8f', '#e63946'][i % 6]} />
+              </mesh>
+              <mesh position={[0, 0.32, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color="#ffdbac" />
+              </mesh>
+            </group>
+          ))}
+          {/* Standing fans - Row 4 (back, highest tier) */}
+          {[-3.25, -2.75, -2.25, -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25].map((x, i) => (
+            <group key={`fan-front-4-${i}`} position={[x, 0.77, -0.75]}>
+              <mesh position={[0, 0.15, 0]} castShadow>
+                <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+                <meshStandardMaterial color={['#e63946', '#ffffff', '#2a9d8f', '#1d3557', '#f4a261', '#264653'][i % 6]} />
               </mesh>
               <mesh position={[0, 0.32, 0]} castShadow>
                 <sphereGeometry args={[0.05, 8, 8]} />
