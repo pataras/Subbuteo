@@ -3,12 +3,45 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
-// Flick controller handles drag-to-flick gesture
+// Power control constants
+const MAX_HOLD_TIME = 2.0 // seconds - holding longer than this results in no movement
+const POWER_STAGES = [
+  { time: 0, color: '#4488ff' },      // Blue - starting
+  { time: 0.5, color: '#44ff88' },    // Green - building power
+  { time: 1.0, color: '#ffaa00' },    // Amber - good power
+  { time: 1.5, color: '#ff4444' },    // Red - max power (danger zone)
+]
+
+// Get color based on hold time with interpolation
+function getColorForHoldTime(holdTime) {
+  if (holdTime >= MAX_HOLD_TIME) {
+    return '#666666' // Gray - overcharged, no power
+  }
+
+  // Find which stage we're in
+  for (let i = POWER_STAGES.length - 1; i >= 0; i--) {
+    if (holdTime >= POWER_STAGES[i].time) {
+      return POWER_STAGES[i].color
+    }
+  }
+  return POWER_STAGES[0].color
+}
+
+// Calculate power based on hold time (0 to 1, then drops to 0 at MAX_HOLD_TIME)
+function getPowerForHoldTime(holdTime) {
+  if (holdTime >= MAX_HOLD_TIME) {
+    return 0 // Overcharged - no power
+  }
+  // Power increases up to max hold time
+  return holdTime / MAX_HOLD_TIME
+}
+
+// Hold-to-charge controller - press and hold to build power, direction based on touch position
 function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, cameraMode }) {
   const { camera, gl, raycaster } = useThree()
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState(null)
-  const [dragCurrent, setDragCurrent] = useState(null)
+  const [isHolding, setIsHolding] = useState(false)
+  const [holdPosition, setHoldPosition] = useState(null) // Where the user is holding
+  const [holdTime, setHoldTime] = useState(0)
   const [canFlick, setCanFlick] = useState(true)
   const [currentPlayerPos, setCurrentPlayerPos] = useState([0, 0, 0])
   const [isInMotion, setIsInMotion] = useState(false)
@@ -17,21 +50,19 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   const intersectPoint = useRef(new THREE.Vector3())
   const lastVelocity = useRef(0)
   const stoppedFrames = useRef(0)
+  const holdStartTime = useRef(null)
 
-  // Notify parent when dragging state changes
+  // Notify parent when holding state changes
   useEffect(() => {
-    onDraggingChange?.(isDragging)
-  }, [isDragging, onDraggingChange])
+    onDraggingChange?.(isHolding)
+  }, [isHolding, onDraggingChange])
 
   // Notify parent when motion state changes
   useEffect(() => {
     onActionStateChange?.(isInMotion)
   }, [isInMotion, onActionStateChange])
 
-  // Visual indicator refs
-  const arrowRef = useRef()
-
-  // Track player position and detect when motion stops
+  // Track player position, detect motion, and update hold time
   useFrame(() => {
     if (!playerRef.current || !ballRef?.current) return
 
@@ -61,6 +92,12 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     }
 
     lastVelocity.current = totalSpeed
+
+    // Update hold time while holding
+    if (isHolding && holdStartTime.current !== null) {
+      const elapsed = (performance.now() - holdStartTime.current) / 1000
+      setHoldTime(elapsed)
+    }
   })
 
   // Convert screen position to world position on the ground plane
@@ -75,18 +112,18 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     return intersectPoint.current.clone()
   }, [camera, gl, raycaster])
 
-  // Check if drag started within the launch circle around the player
-  const isValidFlickStart = useCallback((worldPos) => {
+  // Check if click is within the launch circle around the player
+  const isValidHoldStart = useCallback((worldPos) => {
     const playerPos = playerRef.current?.translation()
     if (!playerPos) return false
 
-    // Check if click is within the launch circle (ring from 0.12 to 0.18 radius)
+    // Check if click is within the launch circle area
     const distanceFromPlayer = Math.sqrt(
       Math.pow(worldPos.x - playerPos.x, 2) + Math.pow(worldPos.z - playerPos.z, 2)
     )
 
-    // Allow clicking anywhere near the player (within outer radius of launch circle + some margin)
-    return distanceFromPlayer < 0.3
+    // Allow clicking within the launch circle (0.12 to 0.22 radius with some margin)
+    return distanceFromPlayer >= 0.08 && distanceFromPlayer <= 0.30
   }, [playerRef])
 
   const handlePointerDown = useCallback((e) => {
@@ -95,48 +132,63 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
-    if (isValidFlickStart(worldPos)) {
-      setIsDragging(true)
-      setDragStart(worldPos)
-      setDragCurrent(worldPos)
+    if (isValidHoldStart(worldPos)) {
+      setIsHolding(true)
+      setHoldPosition(worldPos)
+      setHoldTime(0)
+      holdStartTime.current = performance.now()
       e.target.setPointerCapture(e.pointerId)
     }
-  }, [screenToWorld, isValidFlickStart, canFlick, isInMotion, cameraMode])
+  }, [screenToWorld, isValidHoldStart, canFlick, isInMotion, cameraMode])
 
   const handlePointerMove = useCallback((e) => {
-    if (!isDragging) return
+    if (!isHolding) return
 
+    // Update hold position as user moves finger/mouse while holding
     const worldPos = screenToWorld(e.clientX, e.clientY)
-    setDragCurrent(worldPos)
-  }, [isDragging, screenToWorld])
+    setHoldPosition(worldPos)
+  }, [isHolding, screenToWorld])
 
   const handlePointerUp = useCallback((e) => {
-    if (!isDragging || !dragStart || !dragCurrent) {
-      setIsDragging(false)
+    if (!isHolding || !holdPosition) {
+      setIsHolding(false)
+      setHoldTime(0)
+      holdStartTime.current = null
       return
     }
 
-    // Calculate flick vector (direction you dragged = direction player moves)
-    const flickVector = new THREE.Vector3(
-      dragCurrent.x - dragStart.x,
+    const playerPos = playerRef.current?.translation()
+    if (!playerPos) {
+      setIsHolding(false)
+      setHoldTime(0)
+      holdStartTime.current = null
+      return
+    }
+
+    // Calculate direction: from player center to hold position
+    const directionVector = new THREE.Vector3(
+      holdPosition.x - playerPos.x,
       0,
-      dragCurrent.z - dragStart.z
+      holdPosition.z - playerPos.z
     )
 
-    const flickStrength = flickVector.length()
+    const distance = directionVector.length()
 
-    // Apply impulse if significant drag
-    if (flickStrength > 0.05 && playerRef.current) {
-      // Normalize and scale the impulse
-      flickVector.normalize()
+    // Get power based on hold time
+    const power = getPowerForHoldTime(holdTime)
 
-      // Scale force based on drag distance - keep it very gentle
-      const forceMagnitude = Math.min(flickStrength * 0.1, 0.15)
+    // Apply impulse if there's power and valid direction
+    if (power > 0.05 && distance > 0.01 && playerRef.current) {
+      // Normalize direction
+      directionVector.normalize()
+
+      // Scale force based on power (max force of 0.15)
+      const forceMagnitude = power * 0.15
 
       const impulse = {
-        x: flickVector.x * forceMagnitude,
+        x: directionVector.x * forceMagnitude,
         y: 0,
-        z: flickVector.z * forceMagnitude
+        z: directionVector.z * forceMagnitude
       }
 
       // Apply impulse to player
@@ -147,10 +199,11 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       setTimeout(() => setCanFlick(true), 500)
     }
 
-    setIsDragging(false)
-    setDragStart(null)
-    setDragCurrent(null)
-  }, [isDragging, dragStart, dragCurrent, playerRef])
+    setIsHolding(false)
+    setHoldPosition(null)
+    setHoldTime(0)
+    holdStartTime.current = null
+  }, [isHolding, holdPosition, holdTime, playerRef])
 
   // Register event listeners on the canvas
   const { gl: renderer } = useThree()
@@ -171,52 +224,64 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     }
   }, [handlePointerDown, handlePointerMove, handlePointerUp, renderer.domElement])
 
-  // Calculate arrow visualization
-  const arrowData = isDragging && dragStart && dragCurrent ? (() => {
+  // Calculate arrow visualization - shows direction player will move
+  const arrowData = isHolding && holdPosition ? (() => {
     const playerPos = playerRef.current?.translation()
     if (!playerPos) return null
 
+    // Direction from player to hold position
     const flickDir = new THREE.Vector3(
-      dragCurrent.x - dragStart.x,
+      holdPosition.x - playerPos.x,
       0,
-      dragCurrent.z - dragStart.z
+      holdPosition.z - playerPos.z
     )
-    const strength = flickDir.length()
+    const distance = flickDir.length()
 
-    if (strength < 0.05) return null
+    if (distance < 0.05) return null
 
     flickDir.normalize()
+
+    // Power determines arrow length
+    const power = getPowerForHoldTime(holdTime)
+    const arrowColor = getColorForHoldTime(holdTime)
 
     return {
       start: new THREE.Vector3(playerPos.x, 0.15, playerPos.z),
       direction: flickDir,
-      length: Math.min(strength * 2, 1.5),
-      color: strength > 0.3 ? '#ff4444' : '#ffaa00'
+      length: power * 0.8 + 0.1, // Scale arrow by power
+      color: arrowColor
     }
   })() : null
+
+  // Get current circle color based on hold state
+  const circleColor = isHolding ? getColorForHoldTime(holdTime) : '#4488ff'
+  const circleOpacity = isHolding ? 0.9 : 0.5
 
   // Only show launch circle when not in motion and not in camera mode
   const showLaunchCircle = !isInMotion && canFlick && cameraMode !== 'manual'
 
+  // Calculate power percentage for display
+  const powerPercent = Math.round(getPowerForHoldTime(holdTime) * 100)
+
   return (
     <>
-      {/* Launch circle - full ring around player, only visible when action stopped */}
+      {/* Launch circle - full ring around player, color changes based on hold time */}
       {showLaunchCircle && (
         <mesh
           position={[currentPlayerPos[0], 0.005, currentPlayerPos[2]]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
-          <ringGeometry args={[0.12, 0.18, 64]} />
+          <ringGeometry args={[0.12, 0.22, 64]} />
           <meshBasicMaterial
-            color={isDragging ? '#44ff88' : '#4488ff'}
+            color={circleColor}
             transparent
-            opacity={isDragging ? 0.8 : 0.5}
+            opacity={circleOpacity}
             side={THREE.DoubleSide}
           />
         </mesh>
       )}
 
-      {/* Direction arrow when dragging */}
+      {/* Direction arrow when holding - shows where player will go */}
       {arrowData && (
         <arrowHelper
           args={[
@@ -230,22 +295,19 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
         />
       )}
 
-      {/* Drag line visualization */}
-      {isDragging && dragStart && dragCurrent && (
-        <line>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={2}
-              array={new Float32Array([
-                dragStart.x, 0.1, dragStart.z,
-                dragCurrent.x, 0.1, dragCurrent.z
-              ])}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={2} />
-        </line>
+      {/* Hold position indicator */}
+      {isHolding && holdPosition && (
+        <mesh
+          position={[holdPosition.x, 0.01, holdPosition.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[0.03, 16]} />
+          <meshBasicMaterial
+            color={circleColor}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
       )}
 
       {/* Instructions overlay - hide in camera mode */}
@@ -261,9 +323,11 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
             whiteSpace: 'nowrap',
             userSelect: 'none'
           }}>
-            {isDragging
-              ? '↑ Release to flick!'
-              : 'Drag from behind the player to flick'}
+            {isHolding
+              ? holdTime >= MAX_HOLD_TIME
+                ? 'Overcharged! No power'
+                : `Power: ${powerPercent}% - Release to move!`
+              : 'Hold the ring to charge power'}
           </div>
         </Html>
       )}
