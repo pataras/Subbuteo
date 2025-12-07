@@ -1,10 +1,66 @@
+import { useState, useRef, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { GameProvider } from './contexts/GameContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 
-function AppContent() {
+function ProfileDropdown() {
   const { currentUser, logout } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Get initials from email
+  const getInitials = (email) => {
+    if (!email) return '?'
+    const name = email.split('@')[0]
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  return (
+    <div ref={dropdownRef} style={profileContainerStyle}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={profileButtonStyle}
+        title={currentUser.email}
+      >
+        {currentUser.photoURL ? (
+          <img
+            src={currentUser.photoURL}
+            alt="Profile"
+            style={profileImageStyle}
+          />
+        ) : (
+          <div style={profileInitialsStyle}>
+            {getInitials(currentUser.email)}
+          </div>
+        )}
+      </button>
+
+      {isOpen && (
+        <div style={dropdownMenuStyle}>
+          <div style={dropdownEmailStyle}>{currentUser.email}</div>
+          <button onClick={logout} style={signOutButtonStyle}>
+            Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AppContent() {
+  const { currentUser } = useAuth()
 
   if (!currentUser) {
     return <AuthScreen />
@@ -13,44 +69,87 @@ function AppContent() {
   return (
     <GameProvider>
       <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-        <div style={logoutContainerStyle}>
-          <span style={userEmailStyle}>{currentUser.email}</span>
-          <button onClick={logout} style={logoutButtonStyle}>
-            Sign Out
-          </button>
-        </div>
+        <ProfileDropdown />
         <Game />
       </div>
     </GameProvider>
   )
 }
 
-const logoutContainerStyle = {
+const profileContainerStyle = {
   position: 'absolute',
   top: '10px',
   right: '10px',
   zIndex: 1000,
+}
+
+const profileButtonStyle = {
+  width: '36px',
+  height: '36px',
+  borderRadius: '50%',
+  border: '2px solid rgba(255, 255, 255, 0.3)',
+  background: 'transparent',
+  padding: 0,
+  cursor: 'pointer',
+  overflow: 'hidden',
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  padding: '8px 16px',
+  justifyContent: 'center',
+}
+
+const profileImageStyle = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  borderRadius: '50%',
+}
+
+const profileInitialsStyle = {
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#4a5568',
+  color: 'white',
+  fontSize: '14px',
+  fontWeight: 'bold',
+  fontFamily: 'sans-serif',
+}
+
+const dropdownMenuStyle = {
+  position: 'absolute',
+  top: '44px',
+  right: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.9)',
   borderRadius: '8px',
+  padding: '8px',
+  minWidth: '160px',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+  border: '1px solid #333',
 }
 
-const userEmailStyle = {
-  color: 'white',
-  fontSize: '14px',
+const dropdownEmailStyle = {
+  color: '#aaa',
+  fontSize: '12px',
+  padding: '8px 12px',
+  borderBottom: '1px solid #333',
+  marginBottom: '4px',
+  wordBreak: 'break-all',
+  fontFamily: 'sans-serif',
 }
 
-const logoutButtonStyle = {
-  padding: '6px 12px',
+const signOutButtonStyle = {
+  width: '100%',
+  padding: '8px 12px',
   fontSize: '14px',
   color: 'white',
-  backgroundColor: '#c62828',
+  backgroundColor: 'transparent',
   border: 'none',
   borderRadius: '4px',
   cursor: 'pointer',
+  textAlign: 'left',
+  fontFamily: 'sans-serif',
 }
 
 function App() {

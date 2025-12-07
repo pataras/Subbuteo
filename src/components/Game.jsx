@@ -375,57 +375,56 @@ function Game() {
       {/* Scoreboard */}
       <div style={{
         position: 'absolute',
-        top: '60px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top: '10px',
+        left: '10px',
         background: 'rgba(0,0,0,0.85)',
-        padding: '12px 24px',
-        borderRadius: '12px',
+        padding: '6px 12px',
+        borderRadius: '8px',
         fontFamily: 'sans-serif',
         display: 'flex',
         alignItems: 'center',
-        gap: '20px',
-        border: '2px solid #333'
+        gap: '8px',
+        border: '1px solid #444'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
-            width: '20px',
-            height: '20px',
+            width: '12px',
+            height: '12px',
             background: TEAMS.ASTON_VILLA.color,
-            borderRadius: '4px',
-            border: '2px solid white'
+            borderRadius: '2px',
+            border: '1px solid white'
           }} />
-          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
-            {TEAMS.ASTON_VILLA.name}
+          <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
+            {TEAMS.ASTON_VILLA.shortName}
           </span>
         </div>
         <div style={{
-          fontSize: '28px',
+          fontSize: '16px',
           fontWeight: 'bold',
           color: 'white',
-          minWidth: '80px',
+          minWidth: '40px',
           textAlign: 'center'
         }}>
           {score.home} - {score.away}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
-            {TEAMS.PRESTON.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
+            {TEAMS.PRESTON.shortName}
           </span>
           <div style={{
-            width: '20px',
-            height: '20px',
+            width: '12px',
+            height: '12px',
             background: TEAMS.PRESTON.color,
-            borderRadius: '4px',
-            border: '2px solid #333'
+            borderRadius: '2px',
+            border: '1px solid #333'
           }} />
         </div>
         <div style={{
           color: '#aaa',
-          fontSize: '14px',
-          marginLeft: '10px',
+          fontSize: '11px',
+          marginLeft: '4px',
           borderLeft: '1px solid #555',
-          paddingLeft: '15px'
+          paddingLeft: '8px'
         }}>
           {formattedDuration}
         </div>
@@ -460,7 +459,7 @@ function Game() {
       {cameraMode === 'manual' && (
         <div style={{
           position: 'absolute',
-          top: '130px',
+          top: '50px',
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(0,0,0,0.8)',
@@ -541,8 +540,8 @@ function Game() {
       {goals.length > 0 && (
         <div style={{
           position: 'absolute',
-          top: '130px',
-          left: '20px',
+          top: '50px',
+          left: '10px',
           background: 'rgba(0,0,0,0.8)',
           padding: '12px 16px',
           borderRadius: '8px',
