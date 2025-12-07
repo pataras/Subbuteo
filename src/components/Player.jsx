@@ -1,6 +1,6 @@
 import { useRef, forwardRef } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
-import { Text } from '@react-three/drei'
+import { Text, Billboard } from '@react-three/drei'
 
 // Subbuteo-style player figure with squashed hemisphere dome base
 const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000', number, name }, ref) {
@@ -81,33 +81,38 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
           <meshStandardMaterial color={color} />
         </mesh>
 
-        {/* Shirt number on back */}
+        {/* Shirt number - Billboard always faces camera */}
         {number && (
-          <Text
-            position={[0, baseHeight + playerHeight * 0.42, 0.026]}
-            fontSize={0.035}
-            color={color === '#FFFFFF' ? '#001B44' : '#95BFE5'}
-            anchorX="center"
-            anchorY="middle"
-            fontWeight="bold"
-          >
-            {number}
-          </Text>
+          <Billboard position={[0, baseHeight + playerHeight + 0.08, 0]} follow={true}>
+            <Text
+              fontSize={0.06}
+              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+              outlineWidth={0.003}
+              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
+            >
+              {number}
+            </Text>
+          </Billboard>
         )}
 
-        {/* Player name on back (below number) */}
+        {/* Player name - Billboard always faces camera */}
         {name && (
-          <Text
-            position={[0, baseHeight + playerHeight * 0.28, 0.026]}
-            fontSize={0.012}
-            color={color === '#FFFFFF' ? '#001B44' : '#95BFE5'}
-            anchorX="center"
-            anchorY="middle"
-            fontWeight="bold"
-            maxWidth={0.08}
-          >
-            {name.toUpperCase()}
-          </Text>
+          <Billboard position={[0, baseHeight + playerHeight + 0.02, 0]} follow={true}>
+            <Text
+              fontSize={0.025}
+              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+              outlineWidth={0.002}
+              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
+            >
+              {name.toUpperCase()}
+            </Text>
+          </Billboard>
         )}
       </group>
     </RigidBody>

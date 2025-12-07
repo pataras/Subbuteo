@@ -79,8 +79,8 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     // Look at the ball
     targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
 
-    // Smooth camera movement - faster in manual mode for responsive mobile control
-    const lerpFactor = cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.05 : 0.03)
+    // Smooth camera movement - faster for responsive tracking
+    const lerpFactor = cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.15 : 0.12)
     camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
   })

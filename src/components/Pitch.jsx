@@ -48,41 +48,94 @@ function Pitch() {
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
-      {/* Penalty areas */}
-      {/* Top penalty area */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, -halfLength + 1.2]}>
-        <planeGeometry args={[2.4, 2.4]} />
-        <meshStandardMaterial color="#2d8a2d" />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 1.2]}>
-        <ringGeometry args={[0, 2.4 / 2, 4, 1, 0, Math.PI * 2]} />
-        <meshStandardMaterial color="#ffffff" wireframe />
-      </mesh>
-      {/* Top penalty box outline */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 1.2]}>
-        <planeGeometry args={[2.4, 0.03]} />
+      {/* Penalty areas - proper football pitch proportions */}
+      {/* Dimensions scaled from real pitch (68m x 105m to 6 x 9):
+          Penalty area: 3.5 wide x 1.4 deep
+          Goal area: 1.6 wide x 0.5 deep
+          Penalty spot: 0.95 from goal line
+          Penalty arc radius: 0.8 */}
+
+      {/* TOP PENALTY AREA (Preston end) */}
+      {/* Penalty box front line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 1.4]}>
+        <planeGeometry args={[3.5, 0.03]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.2, 0.002, -halfLength + 0.6]}>
-        <planeGeometry args={[0.03, 1.2]} />
+      {/* Penalty box left side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.75, 0.002, -halfLength + 0.7]}>
+        <planeGeometry args={[0.03, 1.4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.2, 0.002, -halfLength + 0.6]}>
-        <planeGeometry args={[0.03, 1.2]} />
+      {/* Penalty box right side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.75, 0.002, -halfLength + 0.7]}>
+        <planeGeometry args={[0.03, 1.4]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area front line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 0.5]}>
+        <planeGeometry args={[1.6, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area left side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.8, 0.002, -halfLength + 0.25]}>
+        <planeGeometry args={[0.03, 0.5]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area right side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.8, 0.002, -halfLength + 0.25]}>
+        <planeGeometry args={[0.03, 0.5]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Penalty spot */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 0.95]}>
+        <circleGeometry args={[0.035, 16]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Penalty arc (semicircle outside the box) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 0.95]}>
+        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 0.7, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
-      {/* Bottom penalty area */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 1.2]}>
-        <planeGeometry args={[2.4, 0.03]} />
+      {/* BOTTOM PENALTY AREA (Aston Villa end) */}
+      {/* Penalty box front line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 1.4]}>
+        <planeGeometry args={[3.5, 0.03]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.2, 0.002, halfLength - 0.6]}>
-        <planeGeometry args={[0.03, 1.2]} />
+      {/* Penalty box left side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.75, 0.002, halfLength - 0.7]}>
+        <planeGeometry args={[0.03, 1.4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.2, 0.002, halfLength - 0.6]}>
-        <planeGeometry args={[0.03, 1.2]} />
+      {/* Penalty box right side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.75, 0.002, halfLength - 0.7]}>
+        <planeGeometry args={[0.03, 1.4]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area front line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 0.5]}>
+        <planeGeometry args={[1.6, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area left side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.8, 0.002, halfLength - 0.25]}>
+        <planeGeometry args={[0.03, 0.5]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Goal area right side */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.8, 0.002, halfLength - 0.25]}>
+        <planeGeometry args={[0.03, 0.5]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Penalty spot */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 0.95]}>
+        <circleGeometry args={[0.035, 16]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Penalty arc (semicircle outside the box) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 0.95]}>
+        <ringGeometry args={[0.77, 0.8, 32, 1, -Math.PI * 0.3, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
