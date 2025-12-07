@@ -11,11 +11,11 @@ const Ball = forwardRef(function Ball({ position = [0, 0.1, 0] }, ref) {
       type="dynamic"
       position={position}
       colliders="ball"
-      restitution={0.4}
-      friction={1.5}
-      linearDamping={3}
-      angularDamping={2}
-      mass={0.1}
+      restitution={0.2}
+      friction={0.6}
+      linearDamping={1.21}
+      angularDamping={0.7}
+      mass={0.025}
     >
       <mesh castShadow>
         <sphereGeometry args={[radius, 32, 32]} />
