@@ -1,21 +1,67 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
 // Flick controller handles drag-to-flick gesture
-function FlickController({ playerRef, playerPosition }) {
+function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange }) {
   const { camera, gl, raycaster } = useThree()
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState(null)
   const [dragCurrent, setDragCurrent] = useState(null)
   const [canFlick, setCanFlick] = useState(true)
+  const [currentPlayerPos, setCurrentPlayerPos] = useState([0, 0, 0])
+  const [isInMotion, setIsInMotion] = useState(false)
 
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const intersectPoint = useRef(new THREE.Vector3())
+  const lastVelocity = useRef(0)
+  const stoppedFrames = useRef(0)
+
+  // Notify parent when dragging state changes
+  useEffect(() => {
+    onDraggingChange?.(isDragging)
+  }, [isDragging, onDraggingChange])
+
+  // Notify parent when motion state changes
+  useEffect(() => {
+    onActionStateChange?.(isInMotion)
+  }, [isInMotion, onActionStateChange])
 
   // Visual indicator refs
   const arrowRef = useRef()
+
+  // Track player position and detect when motion stops
+  useFrame(() => {
+    if (!playerRef.current || !ballRef?.current) return
+
+    const playerPos = playerRef.current.translation()
+    const playerVel = playerRef.current.linvel()
+    const ballVel = ballRef.current.linvel()
+
+    // Update current player position for the launch circle
+    setCurrentPlayerPos([playerPos.x, playerPos.y, playerPos.z])
+
+    // Calculate total velocity (player + ball)
+    const playerSpeed = Math.sqrt(playerVel.x ** 2 + playerVel.z ** 2)
+    const ballSpeed = Math.sqrt(ballVel.x ** 2 + ballVel.z ** 2)
+    const totalSpeed = playerSpeed + ballSpeed
+
+    // Detect if objects are in motion
+    const velocityThreshold = 0.01
+    if (totalSpeed > velocityThreshold) {
+      setIsInMotion(true)
+      stoppedFrames.current = 0
+    } else {
+      // Wait a few frames before declaring motion stopped
+      stoppedFrames.current++
+      if (stoppedFrames.current > 30) {
+        setIsInMotion(false)
+      }
+    }
+
+    lastVelocity.current = totalSpeed
+  })
 
   // Convert screen position to world position on the ground plane
   const screenToWorld = useCallback((clientX, clientY) => {
@@ -29,24 +75,23 @@ function FlickController({ playerRef, playerPosition }) {
     return intersectPoint.current.clone()
   }, [camera, gl, raycaster])
 
-  // Check if drag started from behind the player (relative to camera view)
+  // Check if drag started within the launch circle around the player
   const isValidFlickStart = useCallback((worldPos) => {
     const playerPos = playerRef.current?.translation()
     if (!playerPos) return false
 
-    // The player faces towards negative Z (towards the goal)
-    // Valid flick starts from behind (positive Z relative to player)
-    const relativeZ = worldPos.z - playerPos.z
+    // Check if click is within the launch circle (ring from 0.12 to 0.18 radius)
     const distanceFromPlayer = Math.sqrt(
       Math.pow(worldPos.x - playerPos.x, 2) + Math.pow(worldPos.z - playerPos.z, 2)
     )
 
-    // Must be behind player (positive Z) and within reasonable distance
-    return relativeZ > 0 && relativeZ < 1.5 && distanceFromPlayer < 1.0
+    // Allow clicking anywhere near the player (within outer radius of launch circle + some margin)
+    return distanceFromPlayer < 0.3
   }, [playerRef])
 
   const handlePointerDown = useCallback((e) => {
-    if (!canFlick) return
+    // Can't flick during cooldown or while objects are moving
+    if (!canFlick || isInMotion) return
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
@@ -56,7 +101,7 @@ function FlickController({ playerRef, playerPosition }) {
       setDragCurrent(worldPos)
       e.target.setPointerCapture(e.pointerId)
     }
-  }, [screenToWorld, isValidFlickStart, canFlick])
+  }, [screenToWorld, isValidFlickStart, canFlick, isInMotion])
 
   const handlePointerMove = useCallback((e) => {
     if (!isDragging) return
@@ -71,11 +116,11 @@ function FlickController({ playerRef, playerPosition }) {
       return
     }
 
-    // Calculate flick vector (from current drag position towards drag start = forward flick)
+    // Calculate flick vector (direction you dragged = direction player moves)
     const flickVector = new THREE.Vector3(
-      dragStart.x - dragCurrent.x,
+      dragCurrent.x - dragStart.x,
       0,
-      dragStart.z - dragCurrent.z
+      dragCurrent.z - dragStart.z
     )
 
     const flickStrength = flickVector.length()
@@ -85,12 +130,12 @@ function FlickController({ playerRef, playerPosition }) {
       // Normalize and scale the impulse
       flickVector.normalize()
 
-      // Scale force based on drag distance (max around 2 units of drag)
-      const forceMagnitude = Math.min(flickStrength * 8, 12)
+      // Scale force based on drag distance - keep it very gentle
+      const forceMagnitude = Math.min(flickStrength * 0.1, 0.15)
 
       const impulse = {
         x: flickVector.x * forceMagnitude,
-        y: 0.5, // Small upward component for natural movement
+        y: 0,
         z: flickVector.z * forceMagnitude
       }
 
@@ -111,7 +156,7 @@ function FlickController({ playerRef, playerPosition }) {
   const { gl: renderer } = useThree()
 
   // Set up event listeners
-  useState(() => {
+  useEffect(() => {
     const canvas = renderer.domElement
     canvas.addEventListener('pointerdown', handlePointerDown)
     canvas.addEventListener('pointermove', handlePointerMove)
@@ -124,7 +169,7 @@ function FlickController({ playerRef, playerPosition }) {
       canvas.removeEventListener('pointerup', handlePointerUp)
       canvas.removeEventListener('pointerleave', handlePointerUp)
     }
-  })
+  }, [handlePointerDown, handlePointerMove, handlePointerUp, renderer.domElement])
 
   // Calculate arrow visualization
   const arrowData = isDragging && dragStart && dragCurrent ? (() => {
@@ -132,9 +177,9 @@ function FlickController({ playerRef, playerPosition }) {
     if (!playerPos) return null
 
     const flickDir = new THREE.Vector3(
-      dragStart.x - dragCurrent.x,
+      dragCurrent.x - dragStart.x,
       0,
-      dragStart.z - dragCurrent.z
+      dragCurrent.z - dragStart.z
     )
     const strength = flickDir.length()
 
@@ -150,21 +195,26 @@ function FlickController({ playerRef, playerPosition }) {
     }
   })() : null
 
+  // Only show launch circle when not in motion
+  const showLaunchCircle = !isInMotion && canFlick
+
   return (
     <>
-      {/* Flick zone indicator - shows where to start dragging */}
-      <mesh
-        position={[playerPosition[0], 0.002, playerPosition[2] + 0.5]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <ringGeometry args={[0.15, 0.4, 32, 1, 0, Math.PI]} />
-        <meshBasicMaterial
-          color={canFlick ? '#4488ff' : '#888888'}
-          transparent
-          opacity={0.3}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* Launch circle - full ring around player, only visible when action stopped */}
+      {showLaunchCircle && (
+        <mesh
+          position={[currentPlayerPos[0], 0.005, currentPlayerPos[2]]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[0.12, 0.18, 64]} />
+          <meshBasicMaterial
+            color={isDragging ? '#44ff88' : '#4488ff'}
+            transparent
+            opacity={isDragging ? 0.8 : 0.5}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
 
       {/* Direction arrow when dragging */}
       {arrowData && (
