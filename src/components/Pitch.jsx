@@ -91,9 +91,9 @@ function Pitch() {
         <circleGeometry args={[0.035, 16]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      {/* Penalty arc (semicircle outside the box) */}
+      {/* Penalty arc (semicircle outside the box) - pointing toward center */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, -halfLength + 0.95]}>
-        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 0.2, Math.PI * 0.6]} />
+        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 1.2, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
@@ -133,9 +133,9 @@ function Pitch() {
         <circleGeometry args={[0.035, 16]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      {/* Penalty arc (semicircle outside the box) */}
+      {/* Penalty arc (semicircle outside the box) - pointing toward center */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, halfLength - 0.95]}>
-        <ringGeometry args={[0.77, 0.8, 32, 1, -Math.PI * 0.8, Math.PI * 0.6]} />
+        <ringGeometry args={[0.77, 0.8, 32, 1, Math.PI * 0.2, Math.PI * 0.6]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
@@ -149,6 +149,128 @@ function Pitch() {
         <meshStandardMaterial color="#ffffff" />
       </mesh>
 
+      {/* GOALS */}
+      {/* Goal dimensions: width ~0.7 (between goal area posts), height 0.25 */}
+      {/* Top goal (Preston end) */}
+      {/* Left post */}
+      <mesh position={[-0.35, 0.125, -halfLength]} castShadow>
+        <boxGeometry args={[0.03, 0.25, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Right post */}
+      <mesh position={[0.35, 0.125, -halfLength]} castShadow>
+        <boxGeometry args={[0.03, 0.25, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Crossbar */}
+      <mesh position={[0, 0.25, -halfLength]} castShadow>
+        <boxGeometry args={[0.73, 0.03, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Back support posts */}
+      <mesh position={[-0.35, 0.125, -halfLength - 0.15]} castShadow>
+        <boxGeometry args={[0.02, 0.25, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      <mesh position={[0.35, 0.125, -halfLength - 0.15]} castShadow>
+        <boxGeometry args={[0.02, 0.25, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Top back bar */}
+      <mesh position={[0, 0.25, -halfLength - 0.15]} castShadow>
+        <boxGeometry args={[0.72, 0.02, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Side bars connecting front to back */}
+      <mesh position={[-0.35, 0.25, -halfLength - 0.075]} castShadow>
+        <boxGeometry args={[0.02, 0.02, 0.15]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      <mesh position={[0.35, 0.25, -halfLength - 0.075]} castShadow>
+        <boxGeometry args={[0.02, 0.02, 0.15]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Net (back) */}
+      <mesh position={[0, 0.125, -halfLength - 0.15]}>
+        <planeGeometry args={[0.7, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (left side) */}
+      <mesh position={[-0.35, 0.125, -halfLength - 0.075]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[0.15, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (right side) */}
+      <mesh position={[0.35, 0.125, -halfLength - 0.075]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[0.15, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (top) */}
+      <mesh position={[0, 0.25, -halfLength - 0.075]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.7, 0.15]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+
+      {/* Bottom goal (Aston Villa end) */}
+      {/* Left post */}
+      <mesh position={[-0.35, 0.125, halfLength]} castShadow>
+        <boxGeometry args={[0.03, 0.25, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Right post */}
+      <mesh position={[0.35, 0.125, halfLength]} castShadow>
+        <boxGeometry args={[0.03, 0.25, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Crossbar */}
+      <mesh position={[0, 0.25, halfLength]} castShadow>
+        <boxGeometry args={[0.73, 0.03, 0.03]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Back support posts */}
+      <mesh position={[-0.35, 0.125, halfLength + 0.15]} castShadow>
+        <boxGeometry args={[0.02, 0.25, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      <mesh position={[0.35, 0.125, halfLength + 0.15]} castShadow>
+        <boxGeometry args={[0.02, 0.25, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Top back bar */}
+      <mesh position={[0, 0.25, halfLength + 0.15]} castShadow>
+        <boxGeometry args={[0.72, 0.02, 0.02]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Side bars connecting front to back */}
+      <mesh position={[-0.35, 0.25, halfLength + 0.075]} castShadow>
+        <boxGeometry args={[0.02, 0.02, 0.15]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      <mesh position={[0.35, 0.25, halfLength + 0.075]} castShadow>
+        <boxGeometry args={[0.02, 0.02, 0.15]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+      {/* Net (back) */}
+      <mesh position={[0, 0.125, halfLength + 0.15]}>
+        <planeGeometry args={[0.7, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (left side) */}
+      <mesh position={[-0.35, 0.125, halfLength + 0.075]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[0.15, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (right side) */}
+      <mesh position={[0.35, 0.125, halfLength + 0.075]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[0.15, 0.25]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+      {/* Net (top) */}
+      <mesh position={[0, 0.25, halfLength + 0.075]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.7, 0.15]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.3} side={2} />
+      </mesh>
+
       {/* Sponsorship Boarding - Left side */}
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <mesh
@@ -156,7 +278,7 @@ function Pitch() {
           position={[-halfWidth - boardingThickness / 2, boardingHeight / 2, -halfLength + 0.75 + i * 1.5]}
           castShadow
         >
-          <boxGeometry args={[boardingThickness, boardingHeight, 1.4]} />
+          <boxGeometry args={[boardingThickness, boardingHeight, 1.5]} />
           <meshStandardMaterial color={sponsorColors[i % sponsorColors.length]} />
         </mesh>
       ))}
@@ -168,7 +290,7 @@ function Pitch() {
           position={[halfWidth + boardingThickness / 2, boardingHeight / 2, -halfLength + 0.75 + i * 1.5]}
           castShadow
         >
-          <boxGeometry args={[boardingThickness, boardingHeight, 1.4]} />
+          <boxGeometry args={[boardingThickness, boardingHeight, 1.5]} />
           <meshStandardMaterial color={sponsorColors[(i + 3) % sponsorColors.length]} />
         </mesh>
       ))}
@@ -180,7 +302,7 @@ function Pitch() {
           position={[-halfWidth + 0.75 + i * 1.5, boardingHeight / 2, -halfLength - boardingThickness / 2]}
           castShadow
         >
-          <boxGeometry args={[1.4, boardingHeight, boardingThickness]} />
+          <boxGeometry args={[1.5, boardingHeight, boardingThickness]} />
           <meshStandardMaterial color={sponsorColors[(i + 1) % sponsorColors.length]} />
         </mesh>
       ))}
@@ -192,7 +314,7 @@ function Pitch() {
           position={[-halfWidth + 0.75 + i * 1.5, boardingHeight / 2, halfLength + boardingThickness / 2]}
           castShadow
         >
-          <boxGeometry args={[1.4, boardingHeight, boardingThickness]} />
+          <boxGeometry args={[1.5, boardingHeight, boardingThickness]} />
           <meshStandardMaterial color={sponsorColors[(i + 2) % sponsorColors.length]} />
         </mesh>
       ))}

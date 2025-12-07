@@ -31,8 +31,8 @@ const PRESTON_PLAYERS = [
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
 function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle }) {
-  const cameraDistance = 2.5
-  const cameraHeight = 1.5
+  const cameraDistance = 4.5
+  const cameraHeight = 2.5
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
 
@@ -238,8 +238,8 @@ function Game() {
     if (!isDraggingCamera || cameraMode !== 'manual') return
     const deltaX = e.clientX - lastMouseX.current
     lastMouseX.current = e.clientX
-    // Adjust orbit angle based on horizontal drag - higher sensitivity for mobile
-    setOrbitAngle(angle => angle + deltaX * 0.025)
+    // Adjust orbit angle based on horizontal drag - higher sensitivity for faster movement
+    setOrbitAngle(angle => angle + deltaX * 0.08)
   }, [isDraggingCamera, cameraMode])
 
   const handleCameraPointerUp = useCallback(() => {
