@@ -1,8 +1,9 @@
 import { useRef, forwardRef } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
+import { Text } from '@react-three/drei'
 
 // Subbuteo-style player figure with squashed hemisphere dome base
-const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000' }, ref) {
+const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000', number, name }, ref) {
   const baseRadius = 0.1
   const baseHeight = 0.045 // Squashed dome height
   const playerHeight = 0.22
@@ -79,6 +80,35 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
           <cylinderGeometry args={[0.012, 0.012, 0.09, 8]} />
           <meshStandardMaterial color={color} />
         </mesh>
+
+        {/* Shirt number on back */}
+        {number && (
+          <Text
+            position={[0, baseHeight + playerHeight * 0.42, 0.026]}
+            fontSize={0.035}
+            color={color === '#FFFFFF' ? '#001B44' : '#95BFE5'}
+            anchorX="center"
+            anchorY="middle"
+            fontWeight="bold"
+          >
+            {number}
+          </Text>
+        )}
+
+        {/* Player name on back (below number) */}
+        {name && (
+          <Text
+            position={[0, baseHeight + playerHeight * 0.28, 0.026]}
+            fontSize={0.012}
+            color={color === '#FFFFFF' ? '#001B44' : '#95BFE5'}
+            anchorX="center"
+            anchorY="middle"
+            fontWeight="bold"
+            maxWidth={0.08}
+          >
+            {name.toUpperCase()}
+          </Text>
+        )}
       </group>
     </RigidBody>
   )

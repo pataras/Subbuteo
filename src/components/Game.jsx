@@ -9,40 +9,24 @@ import Ball from './Ball'
 import Pitch from './Pitch'
 import FlickController from './FlickController'
 
-// Team formation positions (4-4-1 style)
-const TEAM_POSITIONS = [
-  // Goalkeeper
-  [0, 0.05, 4],
-  // Defenders (4)
-  [-1.5, 0.05, 3],
-  [-0.5, 0.05, 3],
-  [0.5, 0.05, 3],
-  [1.5, 0.05, 3],
-  // Midfielders (4)
-  [-1.5, 0.05, 1.5],
-  [-0.5, 0.05, 1.5],
-  [0.5, 0.05, 1.5],
-  [1.5, 0.05, 1.5],
-  // Striker (1)
-  [0, 0.05, 0.3],
+// Aston Villa - Famous outfield players (claret and blue)
+const ASTON_VILLA_PLAYERS = [
+  { position: [-1.2, 0.05, 2.5], number: 5, name: 'McGrath' },      // Defender
+  { position: [1.2, 0.05, 2.5], number: 6, name: 'Mortimer' },      // Defender
+  { position: [-1.0, 0.05, 1.2], number: 7, name: 'Grealish' },     // Midfielder
+  { position: [1.0, 0.05, 1.2], number: 11, name: 'Agbonlahor' },   // Midfielder
+  { position: [-0.5, 0.05, 0.3], number: 9, name: 'Withe' },        // Striker
+  { position: [0.5, 0.05, 0.3], number: 10, name: 'Yorke' },        // Striker
 ]
 
-// Opposition team positions (mirrored on negative Z side)
-const OPPOSITION_POSITIONS = [
-  // Goalkeeper
-  [0, 0.05, -4],
-  // Defenders (4)
-  [-1.5, 0.05, -3],
-  [-0.5, 0.05, -3],
-  [0.5, 0.05, -3],
-  [1.5, 0.05, -3],
-  // Midfielders (4)
-  [-1.5, 0.05, -1.5],
-  [-0.5, 0.05, -1.5],
-  [0.5, 0.05, -1.5],
-  [1.5, 0.05, -1.5],
-  // Striker (1)
-  [0, 0.05, -0.3],
+// Preston North End - Famous outfield players (white and navy)
+const PRESTON_PLAYERS = [
+  { position: [-1.2, 0.05, -2.5], number: 5, name: 'Lawrenson' },   // Defender
+  { position: [1.2, 0.05, -2.5], number: 6, name: 'Smith' },        // Defender
+  { position: [-1.0, 0.05, -1.2], number: 7, name: 'Finney' },      // Midfielder
+  { position: [1.0, 0.05, -1.2], number: 8, name: 'Alexander' },    // Midfielder
+  { position: [-0.5, 0.05, -0.3], number: 9, name: 'Nugent' },      // Striker
+  { position: [0.5, 0.05, -0.3], number: 10, name: 'Beckham' },     // Striker (loan spell!)
 ]
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
@@ -95,8 +79,8 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     // Look at the ball
     targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
 
-    // Smooth camera movement - faster in manual mode for responsive control
-    const lerpFactor = cameraMode === 'manual' ? 0.15 : (isInMotion ? 0.05 : 0.03)
+    // Smooth camera movement - faster in manual mode for responsive mobile control
+    const lerpFactor = cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.05 : 0.03)
     camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
   })
@@ -126,21 +110,25 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
       {/* Physics world */}
       <Physics gravity={[0, -9.81, 0]} debug={false}>
         <Pitch />
-        {/* All team players (red) */}
-        {TEAM_POSITIONS.map((pos, index) => (
+        {/* Aston Villa players (claret shirts) */}
+        {ASTON_VILLA_PLAYERS.map((player, index) => (
           <Player
-            key={`team-${index}`}
+            key={`villa-${index}`}
             ref={playerRefs.current[index]}
-            position={pos}
-            color="#ff0000"
+            position={player.position}
+            color="#670E36"
+            number={player.number}
+            name={player.name}
           />
         ))}
-        {/* Opposition team players (blue) */}
-        {OPPOSITION_POSITIONS.map((pos, index) => (
+        {/* Preston North End players (white shirts) */}
+        {PRESTON_PLAYERS.map((player, index) => (
           <Player
-            key={`opposition-${index}`}
-            position={pos}
-            color="#0066cc"
+            key={`preston-${index}`}
+            position={player.position}
+            color="#FFFFFF"
+            number={player.number}
+            name={player.name}
           />
         ))}
         <Ball
@@ -172,8 +160,8 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
 function Game() {
   const [isFlicking, setIsFlicking] = useState(false)
   const [isInMotion, setIsInMotion] = useState(false)
-  const [activePlayerIndex, setActivePlayerIndex] = useState(9) // Start with striker
-  const [selectionHistory, setSelectionHistory] = useState([9]) // Track selection order
+  const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with Yorke (striker)
+  const [selectionHistory, setSelectionHistory] = useState([5]) // Track selection order
   const [historyIndex, setHistoryIndex] = useState(0) // Current position in history
 
   // Camera control state
@@ -183,12 +171,12 @@ function Game() {
   const lastMouseX = useRef(0)
 
   // Create refs for all players and ball
-  const playerRefs = useRef(TEAM_POSITIONS.map(() => ({ current: null })))
+  const playerRefs = useRef(ASTON_VILLA_PLAYERS.map(() => ({ current: null })))
   const ballRef = useRef()
 
   // Calculate distances to ball and get sorted player indices
   const getPlayersSortedByDistance = useCallback(() => {
-    if (!ballRef.current) return [...Array(10).keys()]
+    if (!ballRef.current) return [...Array(6).keys()]
 
     const ballPos = ballRef.current.translation()
 
@@ -250,8 +238,8 @@ function Game() {
     if (!isDraggingCamera || cameraMode !== 'manual') return
     const deltaX = e.clientX - lastMouseX.current
     lastMouseX.current = e.clientX
-    // Adjust orbit angle based on horizontal drag
-    setOrbitAngle(angle => angle + deltaX * 0.01)
+    // Adjust orbit angle based on horizontal drag - higher sensitivity for mobile
+    setOrbitAngle(angle => angle + deltaX * 0.025)
   }, [isDraggingCamera, cameraMode])
 
   const handleCameraPointerUp = useCallback(() => {
