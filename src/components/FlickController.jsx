@@ -182,8 +182,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       // Normalize direction
       directionVector.normalize()
 
-      // Scale force based on power (max force of 0.05)
-      const forceMagnitude = power * 0.05
+      // Scale force based on power (max force of 0.025)
+      const forceMagnitude = power * 0.025
 
       const impulse = {
         x: directionVector.x * forceMagnitude,
