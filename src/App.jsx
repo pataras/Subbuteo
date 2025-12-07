@@ -1,4 +1,5 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { GameProvider } from './contexts/GameContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 
@@ -10,15 +11,17 @@ function AppContent() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-      <div style={logoutContainerStyle}>
-        <span style={userEmailStyle}>{currentUser.email}</span>
-        <button onClick={logout} style={logoutButtonStyle}>
-          Sign Out
-        </button>
+    <GameProvider>
+      <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+        <div style={logoutContainerStyle}>
+          <span style={userEmailStyle}>{currentUser.email}</span>
+          <button onClick={logout} style={logoutButtonStyle}>
+            Sign Out
+          </button>
+        </div>
+        <Game />
       </div>
-      <Game />
-    </div>
+    </GameProvider>
   )
 }
 

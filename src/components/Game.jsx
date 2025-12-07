@@ -8,26 +8,16 @@ import Player from './Player'
 import Ball from './Ball'
 import Pitch from './Pitch'
 import FlickController from './FlickController'
+import { useGame, TEAMS } from '../contexts/GameContext'
 
-// Aston Villa - Famous outfield players (claret and blue)
-const ASTON_VILLA_PLAYERS = [
-  { position: [-1.2, 0.05, 2.5], number: 5, name: 'McGrath' },      // Defender
-  { position: [1.2, 0.05, 2.5], number: 6, name: 'Mortimer' },      // Defender
-  { position: [-1.0, 0.05, 1.2], number: 7, name: 'Grealish' },     // Midfielder
-  { position: [1.0, 0.05, 1.2], number: 11, name: 'Agbonlahor' },   // Midfielder
-  { position: [-0.5, 0.05, 0.3], number: 9, name: 'Withe' },        // Striker
-  { position: [0.5, 0.05, 0.3], number: 10, name: 'Yorke' },        // Striker
-]
+// Use teams from GameContext
+const ASTON_VILLA_PLAYERS = TEAMS.ASTON_VILLA.players
+const PRESTON_PLAYERS = TEAMS.PRESTON.players
 
-// Preston North End - Famous outfield players (white and navy)
-const PRESTON_PLAYERS = [
-  { position: [-1.2, 0.05, -2.5], number: 5, name: 'Lawrenson' },   // Defender
-  { position: [1.2, 0.05, -2.5], number: 6, name: 'Smith' },        // Defender
-  { position: [-1.0, 0.05, -1.2], number: 7, name: 'Finney' },      // Midfielder
-  { position: [1.0, 0.05, -1.2], number: 8, name: 'Alexander' },    // Midfielder
-  { position: [-0.5, 0.05, -0.3], number: 9, name: 'Nugent' },      // Striker
-  { position: [0.5, 0.05, -0.3], number: 10, name: 'Beckham' },     // Striker (loan spell!)
-]
+// Goal dimensions for detection
+const GOAL_X_MIN = -0.35
+const GOAL_X_MAX = 0.35
+const HALF_LENGTH = 4.5
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
 function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle }) {
@@ -88,8 +78,38 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
   return null
 }
 
+// Goal detection component
+function GoalDetector({ ballRef, onGoal, lastBallZ }) {
+  useFrame(() => {
+    if (!ballRef.current) return
+
+    const ballPos = ballRef.current.translation()
+    const prevZ = lastBallZ.current
+
+    // Check if ball crossed into top goal (Aston Villa scores)
+    // Ball going from z > -HALF_LENGTH to z < -HALF_LENGTH
+    if (prevZ !== null && prevZ > -HALF_LENGTH && ballPos.z < -HALF_LENGTH) {
+      if (ballPos.x > GOAL_X_MIN && ballPos.x < GOAL_X_MAX && ballPos.y < 0.25) {
+        onGoal('home') // Aston Villa scores
+      }
+    }
+
+    // Check if ball crossed into bottom goal (Preston scores)
+    // Ball going from z < HALF_LENGTH to z > HALF_LENGTH
+    if (prevZ !== null && prevZ < HALF_LENGTH && ballPos.z > HALF_LENGTH) {
+      if (ballPos.x > GOAL_X_MIN && ballPos.x < GOAL_X_MAX && ballPos.y < 0.25) {
+        onGoal('away') // Preston scores
+      }
+    }
+
+    lastBallZ.current = ballPos.z
+  })
+
+  return null
+}
+
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, ballRef, cameraMode, orbitAngle }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ }) {
   return (
     <>
       {/* Lighting */}
@@ -116,7 +136,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
             key={`villa-${index}`}
             ref={playerRefs.current[index]}
             position={player.position}
-            color="#670E36"
+            color={TEAMS.ASTON_VILLA.color}
             number={player.number}
             name={player.name}
           />
@@ -125,8 +145,9 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
         {PRESTON_PLAYERS.map((player, index) => (
           <Player
             key={`preston-${index}`}
+            ref={prestonRefs.current[index]}
             position={player.position}
-            color="#FFFFFF"
+            color={TEAMS.PRESTON.color}
             number={player.number}
             name={player.name}
           />
@@ -142,6 +163,8 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           onActionStateChange={onActionStateChange}
           cameraMode={cameraMode}
         />
+        {/* Goal detection */}
+        <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} />
         {/* Camera controller - inside Physics so refs are populated */}
         <CameraController
           playerRefs={playerRefs}
@@ -163,16 +186,72 @@ function Game() {
   const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with Yorke (striker)
   const [selectionHistory, setSelectionHistory] = useState([5]) // Track selection order
   const [historyIndex, setHistoryIndex] = useState(0) // Current position in history
+  const [showSaveMenu, setShowSaveMenu] = useState(false)
+  const [goalCelebration, setGoalCelebration] = useState(null)
 
   // Camera control state
   const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
   const [orbitAngle, setOrbitAngle] = useState(0) // Angle for manual orbit mode
   const [isDraggingCamera, setIsDraggingCamera] = useState(false)
   const lastMouseX = useRef(0)
+  const lastBallZ = useRef(null) // For goal detection
 
   // Create refs for all players and ball
   const playerRefs = useRef(ASTON_VILLA_PLAYERS.map(() => ({ current: null })))
+  const prestonRefs = useRef(PRESTON_PLAYERS.map(() => ({ current: null })))
   const ballRef = useRef()
+
+  // Game state from context
+  const {
+    score,
+    goals,
+    formattedDuration,
+    gameStatus,
+    isSaving,
+    recordGoal,
+    saveGame,
+    startNewGame,
+    savedGames,
+    fetchSavedGames,
+    loadGame
+  } = useGame()
+
+  // Start game on mount
+  useEffect(() => {
+    if (gameStatus === 'not_started') {
+      startNewGame()
+    }
+  }, [gameStatus, startNewGame])
+
+  // Handle goal scored
+  const handleGoal = useCallback((scoringTeam) => {
+    // Get the active player as the scorer (simplification - in real game would track last touch)
+    const activePlayer = ASTON_VILLA_PLAYERS[activePlayerIndex]
+    const scorerName = activePlayer?.name || 'Unknown'
+    const scorerNumber = activePlayer?.number || 0
+
+    const goal = recordGoal(scoringTeam, scorerName, scorerNumber)
+
+    // Show celebration
+    setGoalCelebration({
+      team: scoringTeam,
+      scorer: scorerName,
+      teamName: scoringTeam === 'home' ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name
+    })
+
+    // Hide celebration after 3 seconds
+    setTimeout(() => setGoalCelebration(null), 3000)
+  }, [activePlayerIndex, recordGoal])
+
+  // Handle save game
+  const handleSaveGame = useCallback(async () => {
+    const result = await saveGame(playerRefs, ballRef, prestonRefs)
+    if (result.success) {
+      setShowSaveMenu(false)
+    } else {
+      alert('Failed to save: ' + result.error)
+    }
+  }, [saveGame])
 
   // Calculate distances to ball and get sorted player indices
   const getPlayersSortedByDistance = useCallback(() => {
@@ -280,9 +359,12 @@ function Game() {
             isInMotion={isInMotion}
             activePlayerIndex={activePlayerIndex}
             playerRefs={playerRefs}
+            prestonRefs={prestonRefs}
             ballRef={ballRef}
             cameraMode={cameraMode}
             orbitAngle={orbitAngle}
+            onGoal={handleGoal}
+            lastBallZ={lastBallZ}
           />
         </Suspense>
 
@@ -290,11 +372,95 @@ function Game() {
         <color attach="background" args={['#87ceeb']} />
       </Canvas>
 
+      {/* Scoreboard */}
+      <div style={{
+        position: 'absolute',
+        top: '60px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(0,0,0,0.85)',
+        padding: '12px 24px',
+        borderRadius: '12px',
+        fontFamily: 'sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+        border: '2px solid #333'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            background: TEAMS.ASTON_VILLA.color,
+            borderRadius: '4px',
+            border: '2px solid white'
+          }} />
+          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
+            {TEAMS.ASTON_VILLA.name}
+          </span>
+        </div>
+        <div style={{
+          fontSize: '28px',
+          fontWeight: 'bold',
+          color: 'white',
+          minWidth: '80px',
+          textAlign: 'center'
+        }}>
+          {score.home} - {score.away}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
+            {TEAMS.PRESTON.name}
+          </span>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            background: TEAMS.PRESTON.color,
+            borderRadius: '4px',
+            border: '2px solid #333'
+          }} />
+        </div>
+        <div style={{
+          color: '#aaa',
+          fontSize: '14px',
+          marginLeft: '10px',
+          borderLeft: '1px solid #555',
+          paddingLeft: '15px'
+        }}>
+          {formattedDuration}
+        </div>
+      </div>
+
+      {/* Goal celebration */}
+      {goalCelebration && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.9)',
+          color: '#ffd700',
+          padding: '30px 60px',
+          borderRadius: '16px',
+          fontFamily: 'sans-serif',
+          textAlign: 'center',
+          border: '3px solid #ffd700',
+          animation: 'pulse 0.5s ease-in-out infinite alternate',
+          zIndex: 1000
+        }}>
+          <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '10px' }}>GOAL!</div>
+          <div style={{ fontSize: '24px', color: 'white' }}>{goalCelebration.teamName}</div>
+          <div style={{ fontSize: '20px', color: '#aaa', marginTop: '5px' }}>
+            Scorer: {goalCelebration.scorer}
+          </div>
+        </div>
+      )}
+
       {/* Camera mode indicator */}
       {cameraMode === 'manual' && (
         <div style={{
           position: 'absolute',
-          top: '20px',
+          top: '130px',
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(0,0,0,0.8)',
@@ -358,7 +524,50 @@ function Game() {
         >
           Reset
         </button>
+        <button
+          onClick={handleSaveGame}
+          disabled={isSaving}
+          style={{
+            ...buttonStyle,
+            background: isSaving ? '#666' : '#22aa44',
+            cursor: isSaving ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
       </div>
+
+      {/* Goal scorers panel */}
+      {goals.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '130px',
+          left: '20px',
+          background: 'rgba(0,0,0,0.8)',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          maxHeight: '200px',
+          overflowY: 'auto'
+        }}>
+          <div style={{ color: '#ffd700', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>
+            Goals
+          </div>
+          {goals.map((goal, index) => (
+            <div key={index} style={{ color: 'white', fontSize: '12px', marginBottom: '4px' }}>
+              <span style={{ color: '#aaa' }}>{goal.formattedTime}</span>
+              {' - '}
+              <span style={{ color: goal.team === 'home' ? '#ff6b6b' : '#4dabf7' }}>
+                {goal.scorer}
+              </span>
+              {' '}
+              <span style={{ color: '#666' }}>
+                ({goal.team === 'home' ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name})
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
