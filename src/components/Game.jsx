@@ -1,5 +1,5 @@
 import { useRef, Suspense, useState, useCallback, useEffect } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import * as THREE from 'three'
@@ -9,6 +9,12 @@ import Ball from './Ball'
 import Pitch from './Pitch'
 import FlickController from './FlickController'
 import { useGame, TEAMS } from '../contexts/GameContext'
+
+// Pitch dimensions for stand visibility calculations
+const PITCH_HALF_WIDTH = 3
+const PITCH_HALF_LENGTH = 4.5
+const STAND_DEPTH = 1.2
+const BOARDING_THICKNESS = 0.08
 
 // Use teams from GameContext
 const ASTON_VILLA_PLAYERS = TEAMS.ASTON_VILLA.players
@@ -20,11 +26,12 @@ const GOAL_X_MAX = 0.35
 const HALF_LENGTH = 4.5
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
-function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle }) {
+function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, onCameraPositionChange }) {
   const cameraDistance = 4.5
   const cameraHeight = 2.5
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
+  const lastReportedPosition = useRef({ x: 0, z: 0 })
 
   useFrame(({ camera }) => {
     const activePlayer = playerRefs.current[activePlayerIndex]
@@ -73,6 +80,15 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     const lerpFactor = cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.15 : 0.12)
     camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
+
+    // Report camera position for stand visibility (throttled to avoid excessive updates)
+    const camX = camera.position.x
+    const camZ = camera.position.z
+    if (Math.abs(camX - lastReportedPosition.current.x) > 0.5 ||
+        Math.abs(camZ - lastReportedPosition.current.z) > 0.5) {
+      lastReportedPosition.current = { x: camX, z: camZ }
+      onCameraPositionChange?.(camX, camZ)
+    }
   })
 
   return null
@@ -109,7 +125,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility }) {
   return (
     <>
       {/* Lighting */}
@@ -129,7 +145,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
 
       {/* Physics world */}
       <Physics gravity={[0, -9.81, 0]} debug={false}>
-        <Pitch />
+        <Pitch standVisibility={standVisibility} />
         {/* Aston Villa players (claret shirts) */}
         {ASTON_VILLA_PLAYERS.map((player, index) => (
           <Player
@@ -173,6 +189,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           isInMotion={isInMotion}
           cameraMode={cameraMode}
           orbitAngle={orbitAngle}
+          onCameraPositionChange={onCameraPositionChange}
         />
       </Physics>
     </>
@@ -195,6 +212,14 @@ function Game() {
   const [isDraggingCamera, setIsDraggingCamera] = useState(false)
   const lastMouseX = useRef(0)
   const lastBallZ = useRef(null) // For goal detection
+
+  // Stand visibility based on camera position
+  const [standVisibility, setStandVisibility] = useState({
+    left: true,
+    right: true,
+    back: true,
+    front: false // Front stand is always hidden (camera side)
+  })
 
   // Create refs for all players and ball
   const playerRefs = useRef(ASTON_VILLA_PLAYERS.map(() => ({ current: null })))
@@ -306,6 +331,26 @@ function Game() {
     setCameraMode(mode => mode === 'auto' ? 'manual' : 'auto')
   }, [])
 
+  // Handle camera position changes for stand visibility
+  const handleCameraPositionChange = useCallback((camX, camZ) => {
+    // Calculate which stands the camera is "behind"
+    // If camera is beyond a stand's position, hide that stand
+    const standThreshold = PITCH_HALF_WIDTH + STAND_DEPTH / 2 + BOARDING_THICKNESS
+    const backThreshold = -PITCH_HALF_LENGTH - STAND_DEPTH / 2 - 0.2
+    const frontThreshold = PITCH_HALF_LENGTH + STAND_DEPTH / 2 + 0.2
+
+    setStandVisibility({
+      // Hide left stand if camera is far to the left (behind left stand)
+      left: camX > -standThreshold,
+      // Hide right stand if camera is far to the right (behind right stand)
+      right: camX < standThreshold,
+      // Hide back stand if camera is behind it (far negative Z)
+      back: camZ > backThreshold,
+      // Hide front stand if camera is behind it (far positive Z) - always hidden by default
+      front: camZ < frontThreshold
+    })
+  }, [])
+
   // Camera drag handlers for manual mode
   const handleCameraPointerDown = useCallback((e) => {
     if (cameraMode !== 'manual') return
@@ -365,6 +410,8 @@ function Game() {
             orbitAngle={orbitAngle}
             onGoal={handleGoal}
             lastBallZ={lastBallZ}
+            onCameraPositionChange={handleCameraPositionChange}
+            standVisibility={standVisibility}
           />
         </Suspense>
 
@@ -384,7 +431,9 @@ function Game() {
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        border: '1px solid #444'
+        border: '1px solid #444',
+        zIndex: 100,
+        pointerEvents: 'none'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
@@ -445,7 +494,8 @@ function Game() {
           textAlign: 'center',
           border: '3px solid #ffd700',
           animation: 'pulse 0.5s ease-in-out infinite alternate',
-          zIndex: 1000
+          zIndex: 200,
+          pointerEvents: 'none'
         }}>
           <div style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '10px' }}>GOAL!</div>
           <div style={{ fontSize: '24px', color: 'white' }}>{goalCelebration.teamName}</div>
@@ -469,7 +519,9 @@ function Game() {
           fontFamily: 'sans-serif',
           fontSize: '16px',
           fontWeight: 'bold',
-          border: '2px solid #ffcc00'
+          border: '2px solid #ffcc00',
+          zIndex: 100,
+          pointerEvents: 'none'
         }}>
           Camera Mode - Drag to look around, then click Ready to kick
         </div>
@@ -481,7 +533,8 @@ function Game() {
         bottom: '20px',
         right: '20px',
         display: 'flex',
-        gap: '10px'
+        gap: '10px',
+        zIndex: 100
       }}>
         <button
           onClick={toggleCameraMode}
@@ -523,17 +576,6 @@ function Game() {
         >
           Reset
         </button>
-        <button
-          onClick={handleSaveGame}
-          disabled={isSaving}
-          style={{
-            ...buttonStyle,
-            background: isSaving ? '#666' : '#22aa44',
-            cursor: isSaving ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {isSaving ? 'Saving...' : 'Save'}
-        </button>
       </div>
 
       {/* Goal scorers panel */}
@@ -547,7 +589,9 @@ function Game() {
           borderRadius: '8px',
           fontFamily: 'sans-serif',
           maxHeight: '200px',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          zIndex: 100,
+          pointerEvents: 'none'
         }}>
           <div style={{ color: '#ffd700', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>
             Goals
