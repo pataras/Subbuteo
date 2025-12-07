@@ -15,8 +15,8 @@ function Pitch() {
   // Stadium stand dimensions
   const standHeight = 1.5
   const standDepth = 1.2
-  const standColor = '#2c3e50' // Dark blue-gray for stands
-  const seatColor = '#e74c3c' // Red seats
+  const standColor = '#666666' // Grey for stands
+  const seatColor = '#888888' // Grey seats
 
   // Sponsor colors for variety (for side boards only)
   const sponsorColors = [
@@ -319,6 +319,30 @@ function Pitch() {
         </mesh>
       ))}
 
+      {/* Advertising boards behind TOP goal (either side of goal) */}
+      {/* Left of top goal */}
+      <mesh position={[-1.65, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
+        <boxGeometry args={[2.0, boardingHeight, boardingThickness]} />
+        <meshStandardMaterial color={sponsorColors[0]} />
+      </mesh>
+      {/* Right of top goal */}
+      <mesh position={[1.65, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
+        <boxGeometry args={[2.0, boardingHeight, boardingThickness]} />
+        <meshStandardMaterial color={sponsorColors[1]} />
+      </mesh>
+
+      {/* Advertising boards behind BOTTOM goal (either side of goal) */}
+      {/* Left of bottom goal */}
+      <mesh position={[-1.65, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
+        <boxGeometry args={[2.0, boardingHeight, boardingThickness]} />
+        <meshStandardMaterial color={sponsorColors[2]} />
+      </mesh>
+      {/* Right of bottom goal */}
+      <mesh position={[1.65, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
+        <boxGeometry args={[2.0, boardingHeight, boardingThickness]} />
+        <meshStandardMaterial color={sponsorColors[3]} />
+      </mesh>
+
       {/* STADIUM STANDS - Four sides */}
 
       {/* Left Stand (west side) - visible */}
@@ -336,7 +360,7 @@ function Pitch() {
             castShadow
           >
             <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
-            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#c0392b'} />
+            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
           </mesh>
         ))}
       </group>
@@ -356,7 +380,7 @@ function Pitch() {
             castShadow
           >
             <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
-            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#c0392b'} />
+            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
           </mesh>
         ))}
       </group>
@@ -376,7 +400,7 @@ function Pitch() {
             castShadow
           >
             <boxGeometry args={[pitchWidth + standDepth * 2 - 0.2, 0.15, 0.08]} />
-            <meshStandardMaterial color={row % 2 === 0 ? '#3498db' : '#2980b9'} />
+            <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
           </mesh>
         ))}
       </group>
@@ -395,6 +419,92 @@ function Pitch() {
         <boxGeometry args={[standDepth, standHeight, standDepth]} />
         <meshStandardMaterial color={standColor} />
       </mesh>
+
+      {/* TERRACES WITH STANDING FANS */}
+      {/* Fan colors - varied clothing colors */}
+      {/* Back stand terrace - standing fans behind the far goal */}
+      <group position={[0, 0, -halfLength - standDepth / 2 - 0.2]}>
+        {/* Terrace platform (raised grey platform for standing) */}
+        <mesh position={[0, 0.15, 0.3]} castShadow receiveShadow>
+          <boxGeometry args={[pitchWidth + standDepth * 2 - 0.4, 0.1, standDepth * 0.4]} />
+          <meshStandardMaterial color="#555555" />
+        </mesh>
+        {/* Standing fans - rows of simple figures */}
+        {/* Row 1 - front row of standing fans */}
+        {[-3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((x, i) => (
+          <group key={`fan-back-1-${i}`} position={[x, 0.2, 0.15]}>
+            {/* Body */}
+            <mesh position={[0, 0.15, 0]} castShadow>
+              <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+              <meshStandardMaterial color={['#e63946', '#1d3557', '#f4a261', '#2a9d8f', '#ffffff', '#264653'][i % 6]} />
+            </mesh>
+            {/* Head */}
+            <mesh position={[0, 0.32, 0]} castShadow>
+              <sphereGeometry args={[0.05, 8, 8]} />
+              <meshStandardMaterial color="#ffdbac" />
+            </mesh>
+          </group>
+        ))}
+        {/* Row 2 - back row of standing fans (slightly higher) */}
+        {[-3.25, -2.75, -2.25, -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25].map((x, i) => (
+          <group key={`fan-back-2-${i}`} position={[x, 0.35, 0.45]}>
+            {/* Body */}
+            <mesh position={[0, 0.15, 0]} castShadow>
+              <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+              <meshStandardMaterial color={['#1d3557', '#e63946', '#2a9d8f', '#f4a261', '#264653', '#ffffff'][i % 6]} />
+            </mesh>
+            {/* Head */}
+            <mesh position={[0, 0.32, 0]} castShadow>
+              <sphereGeometry args={[0.05, 8, 8]} />
+              <meshStandardMaterial color="#ffdbac" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* Left side terrace - standing section in the corner */}
+      <group position={[-halfWidth - standDepth / 2 - boardingThickness, 0, -halfLength / 2]}>
+        {/* Terrace platform */}
+        <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
+          <boxGeometry args={[standDepth * 0.5, 0.1, 2]} />
+          <meshStandardMaterial color="#555555" />
+        </mesh>
+        {/* Standing fans */}
+        {[-0.8, -0.4, 0, 0.4, 0.8].map((z, i) => (
+          <group key={`fan-left-${i}`} position={[0.2, 0.2, z]}>
+            <mesh position={[0, 0.15, 0]} castShadow>
+              <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+              <meshStandardMaterial color={['#e63946', '#ffffff', '#1d3557', '#2a9d8f', '#f4a261'][i]} />
+            </mesh>
+            <mesh position={[0, 0.32, 0]} castShadow>
+              <sphereGeometry args={[0.05, 8, 8]} />
+              <meshStandardMaterial color="#ffdbac" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* Right side terrace - standing section in the corner */}
+      <group position={[halfWidth + standDepth / 2 + boardingThickness, 0, -halfLength / 2]}>
+        {/* Terrace platform */}
+        <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
+          <boxGeometry args={[standDepth * 0.5, 0.1, 2]} />
+          <meshStandardMaterial color="#555555" />
+        </mesh>
+        {/* Standing fans */}
+        {[-0.8, -0.4, 0, 0.4, 0.8].map((z, i) => (
+          <group key={`fan-right-${i}`} position={[-0.2, 0.2, z]}>
+            <mesh position={[0, 0.15, 0]} castShadow>
+              <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+              <meshStandardMaterial color={['#2a9d8f', '#1d3557', '#ffffff', '#e63946', '#f4a261'][i]} />
+            </mesh>
+            <mesh position={[0, 0.32, 0]} castShadow>
+              <sphereGeometry args={[0.05, 8, 8]} />
+              <meshStandardMaterial color="#ffdbac" />
+            </mesh>
+          </group>
+        ))}
+      </group>
 
       {/* Collision walls (invisible, at boarding positions) */}
       {/* Left wall */}
