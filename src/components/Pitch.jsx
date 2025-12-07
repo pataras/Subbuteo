@@ -3,7 +3,7 @@ import { RigidBody } from '@react-three/rapier'
 // Green pitch/playing surface
 function Pitch() {
   return (
-    <RigidBody type="fixed" friction={0.8} restitution={0.2}>
+    <RigidBody type="fixed" friction={2} restitution={0.1}>
       {/* Main playing surface */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
         <planeGeometry args={[4, 6]} />
