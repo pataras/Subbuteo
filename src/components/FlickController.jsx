@@ -165,11 +165,11 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       return
     }
 
-    // Calculate direction: from player center to hold position
+    // Calculate direction: opposite of hold position (press behind to fire forward)
     const directionVector = new THREE.Vector3(
-      holdPosition.x - playerPos.x,
+      playerPos.x - holdPosition.x,
       0,
-      holdPosition.z - playerPos.z
+      playerPos.z - holdPosition.z
     )
 
     const distance = directionVector.length()
@@ -182,8 +182,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       // Normalize direction
       directionVector.normalize()
 
-      // Scale force based on power (max force of 0.15)
-      const forceMagnitude = power * 0.15
+      // Scale force based on power (max force of 0.05)
+      const forceMagnitude = power * 0.05
 
       const impulse = {
         x: directionVector.x * forceMagnitude,
@@ -229,11 +229,11 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     const playerPos = playerRef.current?.translation()
     if (!playerPos) return null
 
-    // Direction from player to hold position
+    // Direction opposite of hold position (press behind to fire forward)
     const flickDir = new THREE.Vector3(
-      holdPosition.x - playerPos.x,
+      playerPos.x - holdPosition.x,
       0,
-      holdPosition.z - playerPos.z
+      playerPos.z - holdPosition.z
     )
     const distance = flickDir.length()
 
