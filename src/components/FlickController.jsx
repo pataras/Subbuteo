@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
 // Flick controller handles drag-to-flick gesture
-function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange }) {
+function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, cameraMode }) {
   const { camera, gl, raycaster } = useThree()
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState(null)
@@ -90,8 +90,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   }, [playerRef])
 
   const handlePointerDown = useCallback((e) => {
-    // Can't flick during cooldown or while objects are moving
-    if (!canFlick || isInMotion) return
+    // Can't flick during cooldown, while objects are moving, or in camera mode
+    if (!canFlick || isInMotion || cameraMode === 'manual') return
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
@@ -101,7 +101,7 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       setDragCurrent(worldPos)
       e.target.setPointerCapture(e.pointerId)
     }
-  }, [screenToWorld, isValidFlickStart, canFlick, isInMotion])
+  }, [screenToWorld, isValidFlickStart, canFlick, isInMotion, cameraMode])
 
   const handlePointerMove = useCallback((e) => {
     if (!isDragging) return
@@ -195,8 +195,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     }
   })() : null
 
-  // Only show launch circle when not in motion
-  const showLaunchCircle = !isInMotion && canFlick
+  // Only show launch circle when not in motion and not in camera mode
+  const showLaunchCircle = !isInMotion && canFlick && cameraMode !== 'manual'
 
   return (
     <>
@@ -248,23 +248,25 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
         </line>
       )}
 
-      {/* Instructions overlay */}
-      <Html position={[0, 2, 0]} center>
-        <div style={{
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          fontSize: '14px',
-          whiteSpace: 'nowrap',
-          userSelect: 'none'
-        }}>
-          {isDragging
-            ? '↑ Release to flick!'
-            : 'Drag from behind the player to flick'}
-        </div>
-      </Html>
+      {/* Instructions overlay - hide in camera mode */}
+      {cameraMode !== 'manual' && (
+        <Html position={[0, 2, 0]} center>
+          <div style={{
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontFamily: 'sans-serif',
+            fontSize: '14px',
+            whiteSpace: 'nowrap',
+            userSelect: 'none'
+          }}>
+            {isDragging
+              ? '↑ Release to flick!'
+              : 'Drag from behind the player to flick'}
+          </div>
+        </Html>
+      )}
     </>
   )
 }
