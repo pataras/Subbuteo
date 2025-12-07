@@ -13,15 +13,17 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
       type="dynamic"
       position={position}
       colliders={false}
-      restitution={0.3}
+      restitution={0.1}
       friction={1.5}
-      linearDamping={2}
+      linearDamping={2.4}
       angularDamping={3}
       mass={1}
       enabledRotations={[false, true, false]}
+      enabledTranslations={[true, false, true]}
+      lockTranslations={false}
     >
-      {/* Cylinder collider for the base - centered at half height */}
-      <CylinderCollider args={[baseHeight / 2, baseRadius]} position={[0, baseHeight / 2, 0]} />
+      {/* Cylinder collider for the base - tall enough to hit the ball */}
+      <CylinderCollider args={[0.05, baseRadius]} position={[0, 0.05, 0]} />
 
       <group>
         {/* Squashed hemisphere dome base - classic Subbuteo weighted base */}
