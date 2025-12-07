@@ -45,8 +45,8 @@ const OPPOSITION_POSITIONS = [
   [0, 0.05, -0.3],
 ]
 
-// Camera controller that follows player and looks at ball
-function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion }) {
+// Camera controller that follows player and looks at ball, with manual orbit mode
+function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle }) {
   const cameraDistance = 2.5
   const cameraHeight = 1.5
   const targetPosition = useRef(new THREE.Vector3())
@@ -59,34 +59,44 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion }
     const playerPos = activePlayer.current.translation()
     const ballPos = ballRef.current.translation()
 
-    // Calculate direction from ball to player
-    const dirX = playerPos.x - ballPos.x
-    const dirZ = playerPos.z - ballPos.z
-    const distance = Math.sqrt(dirX * dirX + dirZ * dirZ)
-
-    // Normalize the direction (handle case when player and ball overlap)
-    let normX, normZ
-    if (distance > 0.01) {
-      normX = dirX / distance
-      normZ = dirZ / distance
+    if (cameraMode === 'manual') {
+      // Manual orbit mode - orbit around the ball at the user-controlled angle
+      const orbitRadius = cameraDistance
+      targetPosition.current.set(
+        ballPos.x + Math.sin(orbitAngle) * orbitRadius,
+        cameraHeight,
+        ballPos.z + Math.cos(orbitAngle) * orbitRadius
+      )
     } else {
-      // Default to looking from behind (positive Z)
-      normX = 0
-      normZ = 1
-    }
+      // Auto mode - calculate direction from ball to player
+      const dirX = playerPos.x - ballPos.x
+      const dirZ = playerPos.z - ballPos.z
+      const distance = Math.sqrt(dirX * dirX + dirZ * dirZ)
 
-    // Position camera behind player, in line with ball
-    targetPosition.current.set(
-      playerPos.x + normX * cameraDistance,
-      cameraHeight,
-      playerPos.z + normZ * cameraDistance
-    )
+      // Normalize the direction (handle case when player and ball overlap)
+      let normX, normZ
+      if (distance > 0.01) {
+        normX = dirX / distance
+        normZ = dirZ / distance
+      } else {
+        // Default to looking from behind (positive Z)
+        normX = 0
+        normZ = 1
+      }
+
+      // Position camera behind player, in line with ball
+      targetPosition.current.set(
+        playerPos.x + normX * cameraDistance,
+        cameraHeight,
+        playerPos.z + normZ * cameraDistance
+      )
+    }
 
     // Look at the ball
     targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
 
-    // Smooth camera movement
-    const lerpFactor = isInMotion ? 0.05 : 0.03
+    // Smooth camera movement - faster in manual mode for responsive control
+    const lerpFactor = cameraMode === 'manual' ? 0.15 : (isInMotion ? 0.05 : 0.03)
     camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
   })
@@ -95,7 +105,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion }
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, ballRef }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, ballRef, cameraMode, orbitAngle }) {
   return (
     <>
       {/* Lighting */}
@@ -142,6 +152,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           ballRef={ballRef}
           onDraggingChange={onDraggingChange}
           onActionStateChange={onActionStateChange}
+          cameraMode={cameraMode}
         />
         {/* Camera controller - inside Physics so refs are populated */}
         <CameraController
@@ -149,6 +160,8 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           activePlayerIndex={activePlayerIndex}
           ballRef={ballRef}
           isInMotion={isInMotion}
+          cameraMode={cameraMode}
+          orbitAngle={orbitAngle}
         />
       </Physics>
     </>
@@ -162,6 +175,12 @@ function Game() {
   const [activePlayerIndex, setActivePlayerIndex] = useState(9) // Start with striker
   const [selectionHistory, setSelectionHistory] = useState([9]) // Track selection order
   const [historyIndex, setHistoryIndex] = useState(0) // Current position in history
+
+  // Camera control state
+  const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
+  const [orbitAngle, setOrbitAngle] = useState(0) // Angle for manual orbit mode
+  const [isDraggingCamera, setIsDraggingCamera] = useState(false)
+  const lastMouseX = useRef(0)
 
   // Create refs for all players and ball
   const playerRefs = useRef(TEAM_POSITIONS.map(() => ({ current: null })))
@@ -215,6 +234,30 @@ function Game() {
     }
   }, [historyIndex, selectionHistory])
 
+  // Toggle camera mode
+  const toggleCameraMode = useCallback(() => {
+    setCameraMode(mode => mode === 'auto' ? 'manual' : 'auto')
+  }, [])
+
+  // Camera drag handlers for manual mode
+  const handleCameraPointerDown = useCallback((e) => {
+    if (cameraMode !== 'manual') return
+    setIsDraggingCamera(true)
+    lastMouseX.current = e.clientX
+  }, [cameraMode])
+
+  const handleCameraPointerMove = useCallback((e) => {
+    if (!isDraggingCamera || cameraMode !== 'manual') return
+    const deltaX = e.clientX - lastMouseX.current
+    lastMouseX.current = e.clientX
+    // Adjust orbit angle based on horizontal drag
+    setOrbitAngle(angle => angle + deltaX * 0.01)
+  }, [isDraggingCamera, cameraMode])
+
+  const handleCameraPointerUp = useCallback(() => {
+    setIsDraggingCamera(false)
+  }, [])
+
   const buttonStyle = {
     padding: '10px 20px',
     fontSize: '16px',
@@ -227,7 +270,13 @@ function Game() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
+    <div
+      style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}
+      onPointerDown={handleCameraPointerDown}
+      onPointerMove={handleCameraPointerMove}
+      onPointerUp={handleCameraPointerUp}
+      onPointerLeave={handleCameraPointerUp}
+    >
       <Canvas shadows>
         {/* Camera positioned behind the player looking at the ball */}
         <PerspectiveCamera
@@ -244,12 +293,34 @@ function Game() {
             activePlayerIndex={activePlayerIndex}
             playerRefs={playerRefs}
             ballRef={ballRef}
+            cameraMode={cameraMode}
+            orbitAngle={orbitAngle}
           />
         </Suspense>
 
         {/* Sky background */}
         <color attach="background" args={['#87ceeb']} />
       </Canvas>
+
+      {/* Camera mode indicator */}
+      {cameraMode === 'manual' && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)',
+          color: '#ffcc00',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          border: '2px solid #ffcc00'
+        }}>
+          Camera Mode - Drag to look around, then click Ready to kick
+        </div>
+      )}
 
       {/* Control buttons */}
       <div style={{
@@ -260,19 +331,36 @@ function Game() {
         gap: '10px'
       }}>
         <button
-          onClick={selectPreviousPlayer}
-          disabled={historyIndex === 0}
+          onClick={toggleCameraMode}
+          disabled={isInMotion}
           style={{
             ...buttonStyle,
-            background: historyIndex === 0 ? '#666' : '#4488ff',
-            cursor: historyIndex === 0 ? 'not-allowed' : 'pointer'
+            background: isInMotion ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
+            color: cameraMode === 'manual' ? '#000' : '#fff',
+            cursor: isInMotion ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {cameraMode === 'manual' ? 'Ready' : 'Look'}
+        </button>
+        <button
+          onClick={selectPreviousPlayer}
+          disabled={historyIndex === 0 || cameraMode === 'manual'}
+          style={{
+            ...buttonStyle,
+            background: (historyIndex === 0 || cameraMode === 'manual') ? '#666' : '#4488ff',
+            cursor: (historyIndex === 0 || cameraMode === 'manual') ? 'not-allowed' : 'pointer'
           }}
         >
           ← Prev
         </button>
         <button
           onClick={selectNextPlayer}
-          style={buttonStyle}
+          disabled={cameraMode === 'manual'}
+          style={{
+            ...buttonStyle,
+            background: cameraMode === 'manual' ? '#666' : '#4488ff',
+            cursor: cameraMode === 'manual' ? 'not-allowed' : 'pointer'
+          }}
         >
           Next →
         </button>
