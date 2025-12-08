@@ -8,6 +8,7 @@ import Player from './Player'
 import Ball from './Ball'
 import Pitch from './Pitch'
 import FlickController from './FlickController'
+import PlayerDragController from './PlayerDragController'
 import { useGame, TEAMS } from '../contexts/GameContext'
 
 // Pitch dimensions for stand visibility calculations
@@ -125,7 +126,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning }) {
   return (
     <>
       {/* Lighting */}
@@ -172,12 +173,20 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           ref={ballRef}
           position={[0, 0.1, 0]}
         />
-        <FlickController
+        {/* Flick controller for gameplay */}
+        {!isPositioning && (
+          <FlickController
+            playerRef={playerRefs.current[activePlayerIndex]}
+            ballRef={ballRef}
+            onDraggingChange={onDraggingChange}
+            onActionStateChange={onActionStateChange}
+            cameraMode={cameraMode}
+          />
+        )}
+        {/* Drag controller for positioning mode */}
+        <PlayerDragController
           playerRef={playerRefs.current[activePlayerIndex]}
-          ballRef={ballRef}
-          onDraggingChange={onDraggingChange}
-          onActionStateChange={onActionStateChange}
-          cameraMode={cameraMode}
+          isPositioning={isPositioning}
         />
         {/* Goal detection */}
         <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} />
@@ -236,6 +245,8 @@ function Game() {
     recordGoal,
     saveGame,
     startNewGame,
+    startPositioning,
+    finishPositioning,
     savedGames,
     fetchSavedGames,
     loadGame
@@ -370,15 +381,30 @@ function Game() {
     setIsDraggingCamera(false)
   }, [])
 
+  // Handle reset - goes to positioning mode
+  const handleReset = useCallback(() => {
+    startPositioning()
+  }, [startPositioning])
+
+  // Handle done positioning - starts the game
+  const handleDone = useCallback(() => {
+    finishPositioning()
+  }, [finishPositioning])
+
   const buttonStyle = {
-    padding: '10px 20px',
-    fontSize: '16px',
+    padding: '8px',
+    fontSize: '18px',
     background: '#4488ff',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
-    fontFamily: 'sans-serif'
+    fontFamily: 'sans-serif',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 
   return (
@@ -412,6 +438,7 @@ function Game() {
             lastBallZ={lastBallZ}
             onCameraPositionChange={handleCameraPositionChange}
             standVisibility={standVisibility}
+            isPositioning={gameStatus === 'positioning'}
           />
         </Suspense>
 
@@ -506,7 +533,7 @@ function Game() {
       )}
 
       {/* Camera mode indicator */}
-      {cameraMode === 'manual' && (
+      {cameraMode === 'manual' && gameStatus !== 'positioning' && (
         <div style={{
           position: 'absolute',
           top: '50px',
@@ -527,54 +554,92 @@ function Game() {
         </div>
       )}
 
-      {/* Control buttons */}
+      {/* Positioning mode indicator */}
+      {gameStatus === 'positioning' && (
+        <div style={{
+          position: 'absolute',
+          top: '50px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)',
+          color: '#44cc44',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          border: '2px solid #44cc44',
+          zIndex: 100,
+          pointerEvents: 'none'
+        }}>
+          Position Mode - Drag player to move, then press ✓ to start
+        </div>
+      )}
+
+      {/* Camera look button - top right */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        zIndex: 100
+      }}>
+        <button
+          onClick={toggleCameraMode}
+          disabled={isInMotion || gameStatus === 'positioning'}
+          title={cameraMode === 'manual' ? 'Ready' : 'Look around'}
+          style={{
+            ...buttonStyle,
+            background: (isInMotion || gameStatus === 'positioning') ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
+            color: cameraMode === 'manual' ? '#000' : '#fff',
+            cursor: (isInMotion || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {cameraMode === 'manual' ? '✓' : '👁'}
+        </button>
+      </div>
+
+      {/* Control buttons - bottom right */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
         right: '20px',
         display: 'flex',
-        gap: '10px',
+        gap: '8px',
         zIndex: 100
       }}>
         <button
-          onClick={toggleCameraMode}
-          disabled={isInMotion}
-          style={{
-            ...buttonStyle,
-            background: isInMotion ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
-            color: cameraMode === 'manual' ? '#000' : '#fff',
-            cursor: isInMotion ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {cameraMode === 'manual' ? 'Ready' : 'Look'}
-        </button>
-        <button
           onClick={selectPreviousPlayer}
-          disabled={historyIndex === 0 || cameraMode === 'manual'}
+          disabled={historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning'}
+          title="Previous player"
           style={{
             ...buttonStyle,
-            background: (historyIndex === 0 || cameraMode === 'manual') ? '#666' : '#4488ff',
-            cursor: (historyIndex === 0 || cameraMode === 'manual') ? 'not-allowed' : 'pointer'
+            background: (historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning') ? '#666' : '#4488ff',
+            cursor: (historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
           }}
         >
-          ← Prev
+          ◀
         </button>
         <button
           onClick={selectNextPlayer}
-          disabled={cameraMode === 'manual'}
+          disabled={cameraMode === 'manual' || gameStatus === 'positioning'}
+          title="Next player"
           style={{
             ...buttonStyle,
-            background: cameraMode === 'manual' ? '#666' : '#4488ff',
-            cursor: cameraMode === 'manual' ? 'not-allowed' : 'pointer'
+            background: (cameraMode === 'manual' || gameStatus === 'positioning') ? '#666' : '#4488ff',
+            cursor: (cameraMode === 'manual' || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
           }}
         >
-          Next →
+          ▶
         </button>
         <button
-          onClick={() => window.location.reload()}
-          style={buttonStyle}
+          onClick={gameStatus === 'positioning' ? handleDone : handleReset}
+          title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
+          style={{
+            ...buttonStyle,
+            background: gameStatus === 'positioning' ? '#44cc44' : '#4488ff'
+          }}
         >
-          Reset
+          {gameStatus === 'positioning' ? '✓' : '↻'}
         </button>
       </div>
 

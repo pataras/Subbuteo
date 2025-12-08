@@ -48,7 +48,7 @@ export function GameProvider({ children }) {
   const [matchStartTime, setMatchStartTime] = useState(null)
   const [matchDuration, setMatchDuration] = useState(0)
   const [currentTurn, setCurrentTurn] = useState('home')
-  const [gameStatus, setGameStatus] = useState('not_started') // not_started, in_progress, paused, completed
+  const [gameStatus, setGameStatus] = useState('not_started') // not_started, positioning, in_progress, paused, completed
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaveTime, setLastSaveTime] = useState(null)
@@ -68,7 +68,24 @@ export function GameProvider({ children }) {
     return () => clearInterval(interval)
   }, [gameStatus, matchStartTime])
 
-  // Start a new game
+  // Start positioning mode (for setting up players)
+  const startPositioning = useCallback(() => {
+    setGameId(null)
+    setScore({ home: 0, away: 0 })
+    setGoals([])
+    setMatchDuration(0)
+    setCurrentTurn('home')
+    setGameStatus('positioning')
+    lastScorerRef.current = null
+  }, [])
+
+  // Finish positioning and start the game
+  const finishPositioning = useCallback(() => {
+    setMatchStartTime(Date.now())
+    setGameStatus('in_progress')
+  }, [])
+
+  // Start a new game (skips positioning, starts immediately)
   const startNewGame = useCallback(() => {
     setGameId(null)
     setScore({ home: 0, away: 0 })
@@ -265,6 +282,8 @@ export function GameProvider({ children }) {
 
     // Actions
     startNewGame,
+    startPositioning,
+    finishPositioning,
     recordGoal,
     setLastScorer,
     getLastScorer,
