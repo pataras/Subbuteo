@@ -25,9 +25,9 @@ const PRESTON_PLAYERS = TEAMS.PRESTON.players
 // Maximum camera pan speed (units per second) - creates smooth catch-up effect
 const MAX_CAMERA_SPEED = 2.5
 
-function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, onCameraPositionChange, isPositioning }) {
+function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, cameraHeight, onCameraPositionChange, isPositioning }) {
   const cameraDistance = 4.5
-  const cameraHeight = 2.5
+  const defaultHeight = cameraHeight || 2.5
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
   const lastReportedPosition = useRef({ x: 0, z: 0 })
@@ -41,7 +41,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       const pitchCenterZ = 0
       targetPosition.current.set(
         pitchCenterX + Math.sin(orbitAngle) * orbitRadius,
-        cameraHeight,
+        defaultHeight,
         pitchCenterZ + Math.cos(orbitAngle) * orbitRadius
       )
       // Look at pitch center
@@ -74,7 +74,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       const orbitRadius = cameraDistance
       targetPosition.current.set(
         ballPos.x + Math.sin(orbitAngle) * orbitRadius,
-        cameraHeight,
+        defaultHeight,
         ballPos.z + Math.cos(orbitAngle) * orbitRadius
       )
       // Look at the ball
@@ -102,7 +102,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       // Position camera behind player, in line with ball
       targetPosition.current.set(
         playerPos.x + normX * cameraDistance,
-        cameraHeight,
+        defaultHeight,
         playerPos.z + normZ * cameraDistance
       )
       // Look at the ball
@@ -181,7 +181,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings }) {
   return (
     <>
       {/* Lighting */}
@@ -253,6 +253,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           isInMotion={isInMotion}
           cameraMode={cameraMode}
           orbitAngle={orbitAngle}
+          cameraHeight={cameraHeight}
           onCameraPositionChange={onCameraPositionChange}
           isPositioning={isPositioning}
         />
@@ -275,7 +276,9 @@ function Game() {
   // Camera control state
   const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
   const [orbitAngle, setOrbitAngle] = useState(0) // Angle for manual orbit mode
+  const [cameraHeight, setCameraHeight] = useState(2.5) // Camera height for vertical pan
   const [isDraggingCamera, setIsDraggingCamera] = useState(false)
+  const [panDirection, setPanDirection] = useState(null) // 'left', 'right', 'up', 'down' for arrow panning
   const lastMouseX = useRef(0)
   const lastBallZ = useRef(null) // For goal detection
 
@@ -459,6 +462,31 @@ function Game() {
     startPositioning()
   }, [startPositioning])
 
+  // Continuous panning with arrow buttons
+  useEffect(() => {
+    if (!panDirection) return
+    if (cameraMode !== 'manual' && gameStatus !== 'positioning') return
+
+    const panSpeed = 0.04 // Radians per frame for orbit
+    const heightSpeed = 0.05 // Units per frame for height
+    const minHeight = 1.0
+    const maxHeight = 5.0
+
+    const interval = setInterval(() => {
+      if (panDirection === 'left') {
+        setOrbitAngle(angle => angle + panSpeed)
+      } else if (panDirection === 'right') {
+        setOrbitAngle(angle => angle - panSpeed)
+      } else if (panDirection === 'up') {
+        setCameraHeight(h => Math.min(maxHeight, h + heightSpeed))
+      } else if (panDirection === 'down') {
+        setCameraHeight(h => Math.max(minHeight, h - heightSpeed))
+      }
+    }, 16) // ~60fps
+
+    return () => clearInterval(interval)
+  }, [panDirection, cameraMode, gameStatus])
+
   const buttonStyle = {
     padding: '8px',
     fontSize: '18px',
@@ -502,6 +530,7 @@ function Game() {
             ballRef={ballRef}
             cameraMode={cameraMode}
             orbitAngle={orbitAngle}
+            cameraHeight={cameraHeight}
             onGoal={handleGoal}
             lastBallZ={lastBallZ}
             onCameraPositionChange={handleCameraPositionChange}
@@ -662,7 +691,7 @@ function Game() {
           zIndex: 100,
           pointerEvents: 'none'
         }}>
-          Camera Mode - Drag to look around, then click Ready to kick
+          Camera Mode - Use arrows to pan, then click Ready to kick
         </div>
       )}
 
@@ -684,15 +713,126 @@ function Game() {
           zIndex: 100,
           pointerEvents: 'none'
         }}>
-          Position Mode - Drag player to move, ◀▶ to switch players, drag pitch to pan
+          Position Mode - Drag player to move, use arrows to pan camera
         </div>
       )}
 
-      {/* Top right buttons - camera mode and settings */}
+      {/* Camera pan arrows - bottom left */}
+      {gameStatus !== 'completed' && (cameraMode === 'manual' || gameStatus === 'positioning') && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          zIndex: 100,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 44px)',
+          gridTemplateRows: 'repeat(3, 44px)',
+          gap: '2px'
+        }}>
+          {/* Up arrow */}
+          <div style={{ gridColumn: 2, gridRow: 1 }}>
+            <button
+              onPointerDown={() => setPanDirection('up')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan up"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▲
+            </button>
+          </div>
+          {/* Left arrow */}
+          <div style={{ gridColumn: 1, gridRow: 2 }}>
+            <button
+              onPointerDown={() => setPanDirection('left')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan left"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ◀
+            </button>
+          </div>
+          {/* Right arrow */}
+          <div style={{ gridColumn: 3, gridRow: 2 }}>
+            <button
+              onPointerDown={() => setPanDirection('right')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan right"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▶
+            </button>
+          </div>
+          {/* Down arrow */}
+          <div style={{ gridColumn: 2, gridRow: 3 }}>
+            <button
+              onPointerDown={() => setPanDirection('down')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan down"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▼
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top right buttons - settings only (moved down to avoid profile button) */}
       {gameStatus !== 'completed' && (
         <div style={{
           position: 'absolute',
-          top: '10px',
+          top: '55px',
           right: '10px',
           zIndex: 100,
           display: 'flex',
