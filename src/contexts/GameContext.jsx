@@ -57,12 +57,21 @@ export function GameProvider({ children }) {
   // Track last known scorer for goal detection
   const lastScorerRef = useRef(null)
 
-  // Timer for match duration
+  // Match duration limit (1 minute = 60 seconds)
+  const MATCH_DURATION_LIMIT = 60
+
+  // Timer for match duration - ends game after 1 minute
   useEffect(() => {
     let interval
     if (gameStatus === 'in_progress' && matchStartTime) {
       interval = setInterval(() => {
-        setMatchDuration(Math.floor((Date.now() - matchStartTime) / 1000))
+        const elapsed = Math.floor((Date.now() - matchStartTime) / 1000)
+        setMatchDuration(elapsed)
+
+        // End game after 1 minute
+        if (elapsed >= MATCH_DURATION_LIMIT) {
+          setGameStatus('completed')
+        }
       }, 1000)
     }
     return () => clearInterval(interval)
