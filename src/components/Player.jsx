@@ -9,7 +9,8 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
   const { mass, restitution, friction, linearDamping, angularDamping } = settings.player
 
   const baseRadius = 0.1
-  const baseHeight = 0.035 // Height where base dome meets the figure
+  const baseThickness = 0.012 // Flat disc thickness
+  const baseHeight = baseThickness // Height where base meets the figure
   const playerHeight = 0.22
 
   // Head position for facial features
@@ -35,20 +36,14 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
       <CylinderCollider args={[0.05, baseRadius]} position={[0, 0.05, 0]} />
 
       <group>
-        {/* Classic Subbuteo base - dome curving upward like a platform */}
-        <mesh position={[0, 0.012, 0]} scale={[1, 0.3, 1]} castShadow>
-          <sphereGeometry args={[baseRadius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        {/* Classic Subbuteo flat disc base */}
+        <mesh position={[0, baseThickness / 2, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[baseRadius, baseRadius, baseThickness, 32]} />
           <meshStandardMaterial color="#1E90FF" />
         </mesh>
 
-        {/* Flat bottom of base */}
-        <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[baseRadius, 32]} />
-          <meshStandardMaterial color="#1456a8" />
-        </mesh>
-
         {/* Base top rim - decorative ring */}
-        <mesh position={[0, baseHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, baseThickness + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[baseRadius * 0.55, baseRadius * 0.7, 32]} />
           <meshStandardMaterial color="#1456a8" />
         </mesh>
