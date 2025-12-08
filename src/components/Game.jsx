@@ -27,23 +27,20 @@ const GOAL_X_MAX = 0.35
 const HALF_LENGTH = 4.5
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
+// Maximum camera pan speed (units per second) - creates smooth catch-up effect
+const MAX_CAMERA_SPEED = 2.5
+
 function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, onCameraPositionChange, isPositioning }) {
   const cameraDistance = 4.5
   const cameraHeight = 2.5
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
   const lastReportedPosition = useRef({ x: 0, z: 0 })
-  const positioningCameraPos = useRef(null) // Store camera position for positioning mode
 
-  useFrame(({ camera }) => {
-    const activePlayer = playerRefs.current[activePlayerIndex]
-    if (!activePlayer?.current || !ballRef.current) return
-
-    const playerPos = activePlayer.current.translation()
-    const ballPos = ballRef.current.translation()
-
+  useFrame(({ camera }, delta) => {
+    // In positioning mode, camera is controlled separately - doesn't need player ref
     if (isPositioning) {
-      // Positioning mode - orbit around pitch center at user-controlled angle, camera stays still otherwise
+      // Positioning mode - orbit around pitch center at user-controlled angle
       const orbitRadius = cameraDistance
       const pitchCenterX = 0
       const pitchCenterZ = 0
@@ -54,7 +51,30 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       )
       // Look at pitch center
       targetLookAt.current.set(pitchCenterX, 0.1, pitchCenterZ)
-    } else if (cameraMode === 'manual') {
+
+      // Smooth camera movement for positioning
+      camera.position.lerp(targetPosition.current, 0.35)
+      camera.lookAt(targetLookAt.current)
+
+      // Report camera position for stand visibility
+      const camX = camera.position.x
+      const camZ = camera.position.z
+      if (Math.abs(camX - lastReportedPosition.current.x) > 0.5 ||
+          Math.abs(camZ - lastReportedPosition.current.z) > 0.5) {
+        lastReportedPosition.current = { x: camX, z: camZ }
+        onCameraPositionChange?.(camX, camZ)
+      }
+      return
+    }
+
+    // Play mode - requires player and ball refs
+    const activePlayer = playerRefs.current[activePlayerIndex]
+    if (!activePlayer?.current || !ballRef.current) return
+
+    const playerPos = activePlayer.current.translation()
+    const ballPos = ballRef.current.translation()
+
+    if (cameraMode === 'manual') {
       // Manual orbit mode - orbit around the ball at the user-controlled angle
       const orbitRadius = cameraDistance
       targetPosition.current.set(
@@ -64,8 +84,11 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       )
       // Look at the ball
       targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
+
+      // Fast response for manual mode
+      camera.position.lerp(targetPosition.current, 0.35)
     } else {
-      // Auto mode - calculate direction from ball to player
+      // Auto mode - calculate direction from ball to player (view from behind player)
       const dirX = playerPos.x - ballPos.x
       const dirZ = playerPos.z - ballPos.z
       const distance = Math.sqrt(dirX * dirX + dirZ * dirZ)
@@ -89,11 +112,30 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       )
       // Look at the ball
       targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
+
+      // Slow camera movement with max speed clamping - creates smooth catch-up effect
+      const dx = targetPosition.current.x - camera.position.x
+      const dy = targetPosition.current.y - camera.position.y
+      const dz = targetPosition.current.z - camera.position.z
+      const distanceToTarget = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+      if (distanceToTarget > 0.01) {
+        // Calculate max movement this frame based on max speed
+        const maxMove = MAX_CAMERA_SPEED * delta
+
+        if (distanceToTarget <= maxMove) {
+          // Close enough, just move to target
+          camera.position.copy(targetPosition.current)
+        } else {
+          // Move at max speed towards target
+          const moveRatio = maxMove / distanceToTarget
+          camera.position.x += dx * moveRatio
+          camera.position.y += dy * moveRatio
+          camera.position.z += dz * moveRatio
+        }
+      }
     }
 
-    // Smooth camera movement - faster for responsive tracking
-    const lerpFactor = isPositioning ? 0.35 : (cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.15 : 0.12))
-    camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
 
     // Report camera position for stand visibility (throttled to avoid excessive updates)
@@ -140,7 +182,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted }) {
   return (
     <>
       {/* Lighting */}
@@ -187,8 +229,8 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           ref={ballRef}
           position={[0, 0.1, 0]}
         />
-        {/* Flick controller for gameplay */}
-        {!isPositioning && (
+        {/* Flick controller for gameplay - only active during play */}
+        {!isPositioning && !isCompleted && (
           <FlickController
             playerRef={playerRefs.current[activePlayerIndex]}
             ballRef={ballRef}
@@ -267,12 +309,12 @@ function Game() {
     loadGame
   } = useGame()
 
-  // Start game on mount
+  // Start in positioning mode on mount
   useEffect(() => {
     if (gameStatus === 'not_started') {
-      startNewGame()
+      startPositioning()
     }
-  }, [gameStatus, startNewGame])
+  }, [gameStatus, startPositioning])
 
   // Handle goal scored
   const handleGoal = useCallback((scoringTeam) => {
@@ -454,6 +496,7 @@ function Game() {
             onCameraPositionChange={handleCameraPositionChange}
             standVisibility={standVisibility}
             isPositioning={gameStatus === 'positioning'}
+            isCompleted={gameStatus === 'completed'}
           />
         </Suspense>
 
@@ -547,6 +590,48 @@ function Game() {
         </div>
       )}
 
+      {/* Game Over overlay */}
+      {gameStatus === 'completed' && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.95)',
+          color: 'white',
+          padding: '40px 60px',
+          borderRadius: '16px',
+          fontFamily: 'sans-serif',
+          textAlign: 'center',
+          border: '3px solid #fff',
+          zIndex: 300
+        }}>
+          <div style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '20px' }}>Full Time!</div>
+          <div style={{ fontSize: '28px', marginBottom: '15px' }}>
+            <span style={{ color: TEAMS.ASTON_VILLA.color }}>{TEAMS.ASTON_VILLA.name}</span>
+            <span style={{ margin: '0 15px' }}>{score.home} - {score.away}</span>
+            <span style={{ color: '#ccc' }}>{TEAMS.PRESTON.name}</span>
+          </div>
+          <div style={{ fontSize: '20px', color: '#aaa', marginBottom: '25px' }}>
+            {score.home > score.away ? `${TEAMS.ASTON_VILLA.name} wins!` :
+             score.away > score.home ? `${TEAMS.PRESTON.name} wins!` :
+             'Draw!'}
+          </div>
+          <button
+            onClick={handleReset}
+            style={{
+              ...buttonStyle,
+              width: 'auto',
+              padding: '12px 30px',
+              fontSize: '18px',
+              background: '#44cc44'
+            }}
+          >
+            Play Again
+          </button>
+        </div>
+      )}
+
       {/* Camera mode indicator */}
       {cameraMode === 'manual' && gameStatus !== 'positioning' && (
         <div style={{
@@ -592,71 +677,75 @@ function Game() {
       )}
 
       {/* Camera look button - top right */}
-      <div style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        zIndex: 100
-      }}>
-        <button
-          onClick={toggleCameraMode}
-          disabled={isInMotion || gameStatus === 'positioning'}
-          title={cameraMode === 'manual' ? 'Ready' : 'Look around'}
-          style={{
-            ...buttonStyle,
-            background: (isInMotion || gameStatus === 'positioning') ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
-            color: cameraMode === 'manual' ? '#000' : '#fff',
-            cursor: (isInMotion || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {cameraMode === 'manual' ? '✓' : '👁'}
-        </button>
-      </div>
+      {gameStatus !== 'completed' && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 100
+        }}>
+          <button
+            onClick={toggleCameraMode}
+            disabled={isInMotion || gameStatus === 'positioning'}
+            title={cameraMode === 'manual' ? 'Ready' : 'Look around'}
+            style={{
+              ...buttonStyle,
+              background: (isInMotion || gameStatus === 'positioning') ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
+              color: cameraMode === 'manual' ? '#000' : '#fff',
+              cursor: (isInMotion || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {cameraMode === 'manual' ? '✓' : '👁'}
+          </button>
+        </div>
+      )}
 
       {/* Control buttons - bottom right */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        right: '20px',
-        display: 'flex',
-        gap: '8px',
-        zIndex: 100
-      }}>
-        <button
-          onClick={selectPreviousPlayer}
-          disabled={historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')}
-          title="Previous player"
-          style={{
-            ...buttonStyle,
-            background: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? '#666' : '#4488ff',
-            cursor: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? 'not-allowed' : 'pointer'
-          }}
-        >
-          ◀
-        </button>
-        <button
-          onClick={selectNextPlayer}
-          disabled={cameraMode === 'manual' && gameStatus !== 'positioning'}
-          title="Next player"
-          style={{
-            ...buttonStyle,
-            background: (cameraMode === 'manual' && gameStatus !== 'positioning') ? '#666' : '#4488ff',
-            cursor: (cameraMode === 'manual' && gameStatus !== 'positioning') ? 'not-allowed' : 'pointer'
-          }}
-        >
-          ▶
-        </button>
-        <button
-          onClick={gameStatus === 'positioning' ? handleDone : handleReset}
-          title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
-          style={{
-            ...buttonStyle,
-            background: gameStatus === 'positioning' ? '#44cc44' : '#4488ff'
-          }}
-        >
-          {gameStatus === 'positioning' ? '✓' : '↻'}
-        </button>
-      </div>
+      {gameStatus !== 'completed' && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          display: 'flex',
+          gap: '8px',
+          zIndex: 100
+        }}>
+          <button
+            onClick={selectPreviousPlayer}
+            disabled={historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')}
+            title="Previous player"
+            style={{
+              ...buttonStyle,
+              background: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? '#666' : '#4488ff',
+              cursor: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            ◀
+          </button>
+          <button
+            onClick={selectNextPlayer}
+            disabled={cameraMode === 'manual' && gameStatus !== 'positioning'}
+            title="Next player"
+            style={{
+              ...buttonStyle,
+              background: (cameraMode === 'manual' && gameStatus !== 'positioning') ? '#666' : '#4488ff',
+              cursor: (cameraMode === 'manual' && gameStatus !== 'positioning') ? 'not-allowed' : 'pointer'
+            }}
+          >
+            ▶
+          </button>
+          <button
+            onClick={gameStatus === 'positioning' ? handleDone : handleReset}
+            title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
+            style={{
+              ...buttonStyle,
+              background: gameStatus === 'positioning' ? '#44cc44' : '#4488ff'
+            }}
+          >
+            {gameStatus === 'positioning' ? '✓' : '↻'}
+          </button>
+        </div>
+      )}
 
       {/* Goal scorers panel */}
       {goals.length > 0 && (
