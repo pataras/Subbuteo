@@ -27,12 +27,13 @@ const GOAL_X_MAX = 0.35
 const HALF_LENGTH = 4.5
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
-function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, onCameraPositionChange }) {
+function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, onCameraPositionChange, isPositioning }) {
   const cameraDistance = 4.5
   const cameraHeight = 2.5
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
   const lastReportedPosition = useRef({ x: 0, z: 0 })
+  const positioningCameraPos = useRef(null) // Store camera position for positioning mode
 
   useFrame(({ camera }) => {
     const activePlayer = playerRefs.current[activePlayerIndex]
@@ -41,7 +42,19 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     const playerPos = activePlayer.current.translation()
     const ballPos = ballRef.current.translation()
 
-    if (cameraMode === 'manual') {
+    if (isPositioning) {
+      // Positioning mode - orbit around pitch center at user-controlled angle, camera stays still otherwise
+      const orbitRadius = cameraDistance
+      const pitchCenterX = 0
+      const pitchCenterZ = 0
+      targetPosition.current.set(
+        pitchCenterX + Math.sin(orbitAngle) * orbitRadius,
+        cameraHeight,
+        pitchCenterZ + Math.cos(orbitAngle) * orbitRadius
+      )
+      // Look at pitch center
+      targetLookAt.current.set(pitchCenterX, 0.1, pitchCenterZ)
+    } else if (cameraMode === 'manual') {
       // Manual orbit mode - orbit around the ball at the user-controlled angle
       const orbitRadius = cameraDistance
       targetPosition.current.set(
@@ -49,6 +62,8 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
         cameraHeight,
         ballPos.z + Math.cos(orbitAngle) * orbitRadius
       )
+      // Look at the ball
+      targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
     } else {
       // Auto mode - calculate direction from ball to player
       const dirX = playerPos.x - ballPos.x
@@ -72,13 +87,12 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
         cameraHeight,
         playerPos.z + normZ * cameraDistance
       )
+      // Look at the ball
+      targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
     }
 
-    // Look at the ball
-    targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
-
     // Smooth camera movement - faster for responsive tracking
-    const lerpFactor = cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.15 : 0.12)
+    const lerpFactor = isPositioning ? 0.35 : (cameraMode === 'manual' ? 0.35 : (isInMotion ? 0.15 : 0.12))
     camera.position.lerp(targetPosition.current, lerpFactor)
     camera.lookAt(targetLookAt.current)
 
@@ -199,6 +213,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           cameraMode={cameraMode}
           orbitAngle={orbitAngle}
           onCameraPositionChange={onCameraPositionChange}
+          isPositioning={isPositioning}
         />
       </Physics>
     </>
@@ -362,20 +377,20 @@ function Game() {
     })
   }, [])
 
-  // Camera drag handlers for manual mode
+  // Camera drag handlers for manual mode and positioning mode
   const handleCameraPointerDown = useCallback((e) => {
-    if (cameraMode !== 'manual') return
+    if (cameraMode !== 'manual' && gameStatus !== 'positioning') return
     setIsDraggingCamera(true)
     lastMouseX.current = e.clientX
-  }, [cameraMode])
+  }, [cameraMode, gameStatus])
 
   const handleCameraPointerMove = useCallback((e) => {
-    if (!isDraggingCamera || cameraMode !== 'manual') return
+    if (!isDraggingCamera || (cameraMode !== 'manual' && gameStatus !== 'positioning')) return
     const deltaX = e.clientX - lastMouseX.current
     lastMouseX.current = e.clientX
     // Adjust orbit angle based on horizontal drag - higher sensitivity for faster movement
     setOrbitAngle(angle => angle + deltaX * 0.08)
-  }, [isDraggingCamera, cameraMode])
+  }, [isDraggingCamera, cameraMode, gameStatus])
 
   const handleCameraPointerUp = useCallback(() => {
     setIsDraggingCamera(false)
@@ -572,7 +587,7 @@ function Game() {
           zIndex: 100,
           pointerEvents: 'none'
         }}>
-          Position Mode - Drag player to move, then press ✓ to start
+          Position Mode - Drag player to move, ◀▶ to switch players, drag pitch to pan
         </div>
       )}
 
@@ -609,24 +624,24 @@ function Game() {
       }}>
         <button
           onClick={selectPreviousPlayer}
-          disabled={historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning'}
+          disabled={historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')}
           title="Previous player"
           style={{
             ...buttonStyle,
-            background: (historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning') ? '#666' : '#4488ff',
-            cursor: (historyIndex === 0 || cameraMode === 'manual' || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
+            background: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? '#666' : '#4488ff',
+            cursor: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? 'not-allowed' : 'pointer'
           }}
         >
           ◀
         </button>
         <button
           onClick={selectNextPlayer}
-          disabled={cameraMode === 'manual' || gameStatus === 'positioning'}
+          disabled={cameraMode === 'manual' && gameStatus !== 'positioning'}
           title="Next player"
           style={{
             ...buttonStyle,
-            background: (cameraMode === 'manual' || gameStatus === 'positioning') ? '#666' : '#4488ff',
-            cursor: (cameraMode === 'manual' || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
+            background: (cameraMode === 'manual' && gameStatus !== 'positioning') ? '#666' : '#4488ff',
+            cursor: (cameraMode === 'manual' && gameStatus !== 'positioning') ? 'not-allowed' : 'pointer'
           }}
         >
           ▶
