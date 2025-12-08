@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { GameProvider } from './contexts/GameContext'
+import { SettingsProvider } from './contexts/SettingsContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 
@@ -67,12 +68,14 @@ function AppContent() {
   }
 
   return (
-    <GameProvider>
-      <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-        <ProfileDropdown />
-        <Game />
-      </div>
-    </GameProvider>
+    <SettingsProvider>
+      <GameProvider>
+        <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+          <ProfileDropdown />
+          <Game />
+        </div>
+      </GameProvider>
+    </SettingsProvider>
   )
 }
 

@@ -9,22 +9,17 @@ import Ball from './Ball'
 import Pitch from './Pitch'
 import FlickController from './FlickController'
 import PlayerDragController from './PlayerDragController'
+import SettingsPanel from './SettingsPanel'
 import { useGame, TEAMS } from '../contexts/GameContext'
+import { useSettings } from '../contexts/SettingsContext'
 
-// Pitch dimensions for stand visibility calculations
-const PITCH_HALF_WIDTH = 3
-const PITCH_HALF_LENGTH = 4.5
+// Stand dimensions (fixed)
 const STAND_DEPTH = 1.2
 const BOARDING_THICKNESS = 0.08
 
 // Use teams from GameContext
 const ASTON_VILLA_PLAYERS = TEAMS.ASTON_VILLA.players
 const PRESTON_PLAYERS = TEAMS.PRESTON.players
-
-// Goal dimensions for detection
-const GOAL_X_MIN = -0.35
-const GOAL_X_MAX = 0.35
-const HALF_LENGTH = 4.5
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
 // Maximum camera pan speed (units per second) - creates smooth catch-up effect
@@ -152,7 +147,11 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
 }
 
 // Goal detection component
-function GoalDetector({ ballRef, onGoal, lastBallZ }) {
+function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
+  const halfLength = pitchSettings.length / 2
+  const widthScale = pitchSettings.width / 6
+  const goalHalfWidth = (0.7 * widthScale) / 2
+
   useFrame(() => {
     if (!ballRef.current) return
 
@@ -160,17 +159,17 @@ function GoalDetector({ ballRef, onGoal, lastBallZ }) {
     const prevZ = lastBallZ.current
 
     // Check if ball crossed into top goal (Aston Villa scores)
-    // Ball going from z > -HALF_LENGTH to z < -HALF_LENGTH
-    if (prevZ !== null && prevZ > -HALF_LENGTH && ballPos.z < -HALF_LENGTH) {
-      if (ballPos.x > GOAL_X_MIN && ballPos.x < GOAL_X_MAX && ballPos.y < 0.25) {
+    // Ball going from z > -halfLength to z < -halfLength
+    if (prevZ !== null && prevZ > -halfLength && ballPos.z < -halfLength) {
+      if (ballPos.x > -goalHalfWidth && ballPos.x < goalHalfWidth && ballPos.y < 0.25) {
         onGoal('home') // Aston Villa scores
       }
     }
 
     // Check if ball crossed into bottom goal (Preston scores)
-    // Ball going from z < HALF_LENGTH to z > HALF_LENGTH
-    if (prevZ !== null && prevZ < HALF_LENGTH && ballPos.z > HALF_LENGTH) {
-      if (ballPos.x > GOAL_X_MIN && ballPos.x < GOAL_X_MAX && ballPos.y < 0.25) {
+    // Ball going from z < halfLength to z > halfLength
+    if (prevZ !== null && prevZ < halfLength && ballPos.z > halfLength) {
+      if (ballPos.x > -goalHalfWidth && ballPos.x < goalHalfWidth && ballPos.y < 0.25) {
         onGoal('away') // Preston scores
       }
     }
@@ -182,7 +181,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings }) {
   return (
     <>
       {/* Lighting */}
@@ -245,7 +244,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           isPositioning={isPositioning}
         />
         {/* Goal detection */}
-        <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} />
+        <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} pitchSettings={pitchSettings} />
         {/* Camera controller - inside Physics so refs are populated */}
         <CameraController
           playerRefs={playerRefs}
@@ -271,6 +270,7 @@ function Game() {
   const [historyIndex, setHistoryIndex] = useState(0) // Current position in history
   const [showSaveMenu, setShowSaveMenu] = useState(false)
   const [goalCelebration, setGoalCelebration] = useState(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Camera control state
   const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
@@ -278,6 +278,11 @@ function Game() {
   const [isDraggingCamera, setIsDraggingCamera] = useState(false)
   const lastMouseX = useRef(0)
   const lastBallZ = useRef(null) // For goal detection
+
+  // Settings from context
+  const { settings, settingsVersion } = useSettings()
+  const pitchHalfWidth = settings.pitch.width / 2
+  const pitchHalfLength = settings.pitch.length / 2
 
   // Stand visibility based on camera position
   const [standVisibility, setStandVisibility] = useState({
@@ -403,9 +408,9 @@ function Game() {
   const handleCameraPositionChange = useCallback((camX, camZ) => {
     // Calculate which stands the camera is "behind"
     // If camera is beyond a stand's position, hide that stand
-    const standThreshold = PITCH_HALF_WIDTH + STAND_DEPTH / 2 + BOARDING_THICKNESS
-    const backThreshold = -PITCH_HALF_LENGTH - STAND_DEPTH / 2 - 0.2
-    const frontThreshold = PITCH_HALF_LENGTH + STAND_DEPTH / 2 + 0.2
+    const standThreshold = pitchHalfWidth + STAND_DEPTH / 2 + BOARDING_THICKNESS
+    const backThreshold = -pitchHalfLength - STAND_DEPTH / 2 - 0.2
+    const frontThreshold = pitchHalfLength + STAND_DEPTH / 2 + 0.2
 
     setStandVisibility({
       // Hide left stand if camera is far to the left (behind left stand)
@@ -417,7 +422,7 @@ function Game() {
       // Hide front stand if camera is behind it (far positive Z) - always hidden by default
       front: camZ < frontThreshold
     })
-  }, [])
+  }, [pitchHalfWidth, pitchHalfLength])
 
   // Camera drag handlers for manual mode and positioning mode
   const handleCameraPointerDown = useCallback((e) => {
@@ -447,6 +452,12 @@ function Game() {
   const handleDone = useCallback(() => {
     finishPositioning()
   }, [finishPositioning])
+
+  // Handle apply settings - restart game with new settings
+  const handleApplySettings = useCallback(() => {
+    setShowSettings(false)
+    startPositioning()
+  }, [startPositioning])
 
   const buttonStyle = {
     padding: '8px',
@@ -497,6 +508,7 @@ function Game() {
             standVisibility={standVisibility}
             isPositioning={gameStatus === 'positioning'}
             isCompleted={gameStatus === 'completed'}
+            pitchSettings={settings.pitch}
           />
         </Suspense>
 
@@ -676,14 +688,26 @@ function Game() {
         </div>
       )}
 
-      {/* Camera look button - top right */}
+      {/* Top right buttons - camera mode and settings */}
       {gameStatus !== 'completed' && (
         <div style={{
           position: 'absolute',
           top: '10px',
           right: '10px',
-          zIndex: 100
+          zIndex: 100,
+          display: 'flex',
+          gap: '8px'
         }}>
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Game Settings"
+            style={{
+              ...buttonStyle,
+              background: '#884488'
+            }}
+          >
+            ⚙
+          </button>
           <button
             onClick={toggleCameraMode}
             disabled={isInMotion || gameStatus === 'positioning'}
@@ -780,6 +804,13 @@ function Game() {
           ))}
         </div>
       )}
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onApply={handleApplySettings}
+      />
     </div>
   )
 }

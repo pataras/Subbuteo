@@ -1,10 +1,16 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useSettings } from '../contexts/SettingsContext'
 
 // Controller for dragging player during positioning mode
 function PlayerDragController({ playerRef, isPositioning }) {
   const { camera, gl, raycaster } = useThree()
+  const { settings } = useSettings()
+
+  // Calculate bounds from pitch settings (leave some margin from edge)
+  const maxX = (settings.pitch.width / 2) - 0.2
+  const maxZ = (settings.pitch.length / 2) - 0.2
   const [isDragging, setIsDragging] = useState(false)
   const [currentPlayerPos, setCurrentPlayerPos] = useState([0, 0, 0])
 
@@ -58,15 +64,15 @@ function PlayerDragController({ playerRef, isPositioning }) {
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
-    // Clamp to pitch boundaries
-    const clampedX = Math.max(-2.8, Math.min(2.8, worldPos.x))
-    const clampedZ = Math.max(-4.3, Math.min(4.3, worldPos.z))
+    // Clamp to pitch boundaries (using dynamic settings)
+    const clampedX = Math.max(-maxX, Math.min(maxX, worldPos.x))
+    const clampedZ = Math.max(-maxZ, Math.min(maxZ, worldPos.z))
 
     // Set player position directly
     playerRef.current.setTranslation({ x: clampedX, y: 0.05, z: clampedZ }, true)
     playerRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
     playerRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
-  }, [isDragging, screenToWorld, playerRef, isPositioning])
+  }, [isDragging, screenToWorld, playerRef, isPositioning, maxX, maxZ])
 
   const handlePointerUp = useCallback(() => {
     setIsDragging(false)

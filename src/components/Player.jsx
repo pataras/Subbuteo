@@ -1,9 +1,13 @@
 import { useRef, forwardRef } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import { Text } from '@react-three/drei'
+import { useSettings } from '../contexts/SettingsContext'
 
 // Subbuteo-style player figure with more human-like proportions
 const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000', number, name }, ref) {
+  const { settings } = useSettings()
+  const { mass, restitution, friction, linearDamping, angularDamping } = settings.player
+
   const baseRadius = 0.1
   const baseHeight = 0.045 // Squashed dome height
   const playerHeight = 0.22
@@ -14,11 +18,11 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
       type="dynamic"
       position={position}
       colliders={false}
-      restitution={0.1}
-      friction={1.5}
-      linearDamping={2.4}
-      angularDamping={3}
-      mass={1}
+      restitution={restitution}
+      friction={friction}
+      linearDamping={linearDamping}
+      angularDamping={angularDamping}
+      mass={mass}
       enabledRotations={[false, true, false]}
       enabledTranslations={[true, false, true]}
       lockTranslations={false}
