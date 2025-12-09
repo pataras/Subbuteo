@@ -335,24 +335,24 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
 
       {/* Advertising boards behind TOP goal (either side of goal) */}
       {/* Left of top goal */}
-      <mesh position={[-(halfWidth + goalHalfWidth) / 2 - goalHalfWidth / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
+      <mesh position={[-(halfWidth + goalHalfWidth) / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
         <boxGeometry args={[halfWidth - goalHalfWidth, boardingHeight, boardingThickness]} />
         <meshStandardMaterial color={sponsorColors[0]} />
       </mesh>
       {/* Right of top goal */}
-      <mesh position={[(halfWidth + goalHalfWidth) / 2 + goalHalfWidth / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
+      <mesh position={[(halfWidth + goalHalfWidth) / 2, boardingHeight / 2, -halfLength - boardingThickness / 2]} castShadow>
         <boxGeometry args={[halfWidth - goalHalfWidth, boardingHeight, boardingThickness]} />
         <meshStandardMaterial color={sponsorColors[1]} />
       </mesh>
 
       {/* Advertising boards behind BOTTOM goal (either side of goal) */}
       {/* Left of bottom goal */}
-      <mesh position={[-(halfWidth + goalHalfWidth) / 2 - goalHalfWidth / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
+      <mesh position={[-(halfWidth + goalHalfWidth) / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
         <boxGeometry args={[halfWidth - goalHalfWidth, boardingHeight, boardingThickness]} />
         <meshStandardMaterial color={sponsorColors[2]} />
       </mesh>
       {/* Right of bottom goal */}
-      <mesh position={[(halfWidth + goalHalfWidth) / 2 + goalHalfWidth / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
+      <mesh position={[(halfWidth + goalHalfWidth) / 2, boardingHeight / 2, halfLength + boardingThickness / 2]} castShadow>
         <boxGeometry args={[halfWidth - goalHalfWidth, boardingHeight, boardingThickness]} />
         <meshStandardMaterial color={sponsorColors[3]} />
       </mesh>
