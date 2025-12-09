@@ -15,12 +15,12 @@ export const TEAMS = {
     shortName: 'AV',
     color: '#670E36',
     players: [
-      { position: [-1.2, 0, 2.5], number: 5, name: 'McGrath' },
-      { position: [1.2, 0, 2.5], number: 6, name: 'Mortimer' },
-      { position: [-1.0, 0, 1.2], number: 7, name: 'Grealish' },
-      { position: [1.0, 0, 1.2], number: 11, name: 'Agbonlahor' },
-      { position: [-0.5, 0, 0.3], number: 9, name: 'Withe' },
-      { position: [0.5, 0, 0.3], number: 10, name: 'Yorke' },
+      { position: [-1.2, 0.05, 2.5], number: 5, name: 'McGrath' },
+      { position: [1.2, 0.05, 2.5], number: 6, name: 'Mortimer' },
+      { position: [-1.0, 0.05, 1.2], number: 7, name: 'Grealish' },
+      { position: [1.0, 0.05, 1.2], number: 11, name: 'Agbonlahor' },
+      { position: [-0.5, 0.05, 0.3], number: 9, name: 'Withe' },
+      { position: [0.5, 0.05, 0.3], number: 10, name: 'Yorke' },
     ]
   },
   PRESTON: {
@@ -28,12 +28,12 @@ export const TEAMS = {
     shortName: 'PNE',
     color: '#FFFFFF',
     players: [
-      { position: [-1.2, 0, -2.5], number: 5, name: 'Lawrenson' },
-      { position: [1.2, 0, -2.5], number: 6, name: 'Smith' },
-      { position: [-1.0, 0, -1.2], number: 7, name: 'Finney' },
-      { position: [1.0, 0, -1.2], number: 8, name: 'Alexander' },
-      { position: [-0.5, 0, -0.3], number: 9, name: 'Nugent' },
-      { position: [0.5, 0, -0.3], number: 10, name: 'Beckham' },
+      { position: [-1.2, 0.05, -2.5], number: 5, name: 'Lawrenson' },
+      { position: [1.2, 0.05, -2.5], number: 6, name: 'Smith' },
+      { position: [-1.0, 0.05, -1.2], number: 7, name: 'Finney' },
+      { position: [1.0, 0.05, -1.2], number: 8, name: 'Alexander' },
+      { position: [-0.5, 0.05, -0.3], number: 9, name: 'Nugent' },
+      { position: [0.5, 0.05, -0.3], number: 10, name: 'Beckham' },
     ]
   }
 }
