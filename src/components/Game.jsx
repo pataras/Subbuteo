@@ -713,69 +713,10 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         <color attach="background" args={['#87ceeb']} />
       </Canvas>
 
-      {/* Your team indicator (multiplayer) */}
-      {matchId && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.85)',
-          padding: '6px 16px',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          border: `2px solid ${myTeamData?.kit?.primary || '#4CAF50'}`,
-          zIndex: 100,
-          pointerEvents: 'none'
-        }}>
-          <span style={{ color: '#aaa', fontSize: '12px' }}>You control:</span>
-          <div style={{
-            width: '12px',
-            height: '12px',
-            background: myTeamData?.kit?.primary || '#4CAF50',
-            borderRadius: '2px',
-            border: '1px solid white'
-          }} />
-          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
-            {myTeamData?.name || 'Your Team'}
-          </span>
-        </div>
-      )}
-
-      {/* Practice mode indicator */}
-      {isPractice && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.85)',
-          padding: '6px 16px',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          border: '2px solid #2196F3',
-          zIndex: 100,
-          pointerEvents: 'none'
-        }}>
-          <span style={{ color: '#2196F3', fontSize: '14px', fontWeight: 'bold' }}>
-            Practice Mode
-          </span>
-          <span style={{ color: '#888', fontSize: '12px' }}>
-            No time limit
-          </span>
-        </div>
-      )}
-
       {/* Scoreboard */}
       <div style={{
         position: 'absolute',
-        top: (matchId || isPractice) ? '50px' : '10px',
+        top: '10px',
         left: '10px',
         background: 'rgba(0,0,0,0.85)',
         padding: '6px 12px',
@@ -913,50 +854,6 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Camera mode indicator */}
-      {cameraMode === 'manual' && gameStatus !== 'positioning' && (
-        <div style={{
-          position: 'absolute',
-          top: '50px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.8)',
-          color: '#ffcc00',
-          padding: '12px 24px',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          border: '2px solid #ffcc00',
-          zIndex: 100,
-          pointerEvents: 'none'
-        }}>
-          Camera Mode - Use arrows to pan, then click Ready to kick
-        </div>
-      )}
-
-      {/* Positioning mode indicator */}
-      {gameStatus === 'positioning' && (
-        <div style={{
-          position: 'absolute',
-          top: '50px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.8)',
-          color: '#44cc44',
-          padding: '12px 24px',
-          borderRadius: '8px',
-          fontFamily: 'sans-serif',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          border: '2px solid #44cc44',
-          zIndex: 100,
-          pointerEvents: 'none'
-        }}>
-          Position Mode - Click pitch to move player, or drag near player
         </div>
       )}
 
@@ -1173,7 +1070,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       {goals.length > 0 && (
         <div style={{
           position: 'absolute',
-          top: (matchId || isPractice) ? '90px' : '50px',
+          top: '50px',
           left: '10px',
           background: 'rgba(0,0,0,0.8)',
           padding: '12px 16px',
