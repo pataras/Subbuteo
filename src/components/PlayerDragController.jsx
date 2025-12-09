@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { useSettings } from '../contexts/SettingsContext'
 
 // Controller for dragging player during positioning mode
+// Supports both click-to-position and drag-to-position
 function PlayerDragController({ playerRef, isPositioning }) {
   const { camera, gl, raycaster } = useThree()
   const { settings } = useSettings()
@@ -13,15 +14,39 @@ function PlayerDragController({ playerRef, isPositioning }) {
   const maxZ = (settings.pitch.length / 2) - 0.2
   const [isDragging, setIsDragging] = useState(false)
   const [currentPlayerPos, setCurrentPlayerPos] = useState([0, 0, 0])
+  const [targetPos, setTargetPos] = useState(null) // Target position for click-to-move
 
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const intersectPoint = useRef(new THREE.Vector3())
+  const pointerDownPos = useRef({ x: 0, y: 0 }) // Track pointer down position for click detection
+  const hasMoved = useRef(false) // Track if pointer has moved significantly
 
-  // Track player position
+  // Track player position and handle smooth movement to target
   useFrame(() => {
     if (!playerRef.current) return
     const pos = playerRef.current.translation()
     setCurrentPlayerPos([pos.x, pos.y, pos.z])
+
+    // Smoothly move player to target position when clicked
+    if (targetPos && !isDragging) {
+      const dx = targetPos.x - pos.x
+      const dz = targetPos.z - pos.z
+      const distance = Math.sqrt(dx * dx + dz * dz)
+
+      if (distance > 0.02) {
+        // Move towards target with smooth interpolation
+        const speed = 0.15
+        const newX = pos.x + dx * speed
+        const newZ = pos.z + dz * speed
+        playerRef.current.setTranslation({ x: newX, y: 0.05, z: newZ }, true)
+        playerRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+        playerRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      } else {
+        // Arrived at target
+        playerRef.current.setTranslation({ x: targetPos.x, y: 0.05, z: targetPos.z }, true)
+        setTargetPos(null)
+      }
+    }
   })
 
   // Convert screen position to world position on the ground plane
@@ -51,6 +76,10 @@ function PlayerDragController({ playerRef, isPositioning }) {
   const handlePointerDown = useCallback((e) => {
     if (!isPositioning) return
 
+    // Store pointer down position to detect clicks vs drags
+    pointerDownPos.current = { x: e.clientX, y: e.clientY }
+    hasMoved.current = false
+
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
     if (isNearPlayer(worldPos)) {
@@ -60,7 +89,16 @@ function PlayerDragController({ playerRef, isPositioning }) {
   }, [screenToWorld, isNearPlayer, isPositioning])
 
   const handlePointerMove = useCallback((e) => {
-    if (!isDragging || !isPositioning || !playerRef.current) return
+    if (!isPositioning) return
+
+    // Check if pointer has moved significantly (for click detection)
+    const dx = e.clientX - pointerDownPos.current.x
+    const dy = e.clientY - pointerDownPos.current.y
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasMoved.current = true
+    }
+
+    if (!isDragging || !playerRef.current) return
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
@@ -74,9 +112,29 @@ function PlayerDragController({ playerRef, isPositioning }) {
     playerRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
   }, [isDragging, screenToWorld, playerRef, isPositioning, maxX, maxZ])
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e) => {
+    if (!isPositioning || !playerRef.current) {
+      setIsDragging(false)
+      return
+    }
+
+    // If this was a click (not a drag) and not near player, move player to clicked position
+    if (!isDragging && !hasMoved.current) {
+      const worldPos = screenToWorld(e.clientX, e.clientY)
+
+      // Check if click is within pitch bounds
+      if (Math.abs(worldPos.x) <= maxX && Math.abs(worldPos.z) <= maxZ) {
+        // Clamp to pitch boundaries
+        const clampedX = Math.max(-maxX, Math.min(maxX, worldPos.x))
+        const clampedZ = Math.max(-maxZ, Math.min(maxZ, worldPos.z))
+
+        // Set target position for smooth movement
+        setTargetPos({ x: clampedX, z: clampedZ })
+      }
+    }
+
     setIsDragging(false)
-  }, [])
+  }, [isPositioning, isDragging, screenToWorld, playerRef, maxX, maxZ])
 
   // Register event listeners
   useEffect(() => {
@@ -112,6 +170,22 @@ function PlayerDragController({ playerRef, isPositioning }) {
           side={THREE.DoubleSide}
         />
       </mesh>
+
+      {/* Target position indicator */}
+      {targetPos && (
+        <mesh
+          position={[targetPos.x, 0.005, targetPos.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[0.08, 0.12, 32]} />
+          <meshBasicMaterial
+            color="#ffcc00"
+            transparent
+            opacity={0.8}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
     </>
   )
 }
