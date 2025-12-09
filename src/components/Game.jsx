@@ -43,13 +43,14 @@ const DEFAULT_AWAY_POSITIONS = [
 const LEGACY_ASTON_VILLA = LEGACY_TEAMS.ASTON_VILLA
 const LEGACY_PRESTON = LEGACY_TEAMS.PRESTON
 
-// Camera controller that follows player and looks at ball, with manual orbit mode
+// Camera controller that follows player and looks at ball with fixed viewpoint
 // Maximum camera pan speed (units per second) - creates smooth catch-up effect
 const MAX_CAMERA_SPEED = 2.5
 
-function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraMode, orbitAngle, cameraHeight, onCameraPositionChange, isPositioning }) {
-  const cameraDistance = 4.5
-  const defaultHeight = cameraHeight || 2.5
+function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraZoom, cameraHeight, onCameraPositionChange, isPositioning, orbitAngle }) {
+  // Zoom affects camera distance - smaller zoom = closer, larger zoom = farther
+  const cameraDistance = 3.0 + (cameraZoom || 1.0) * 2.0 // Range from 3.0 to 7.0
+  const defaultHeight = 1.5 + (cameraZoom || 1.0) * 1.5 // Height scales with zoom
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
   const lastReportedPosition = useRef({ x: 0, z: 0 })
@@ -91,65 +92,50 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     const playerPos = activePlayer.current.translation()
     const ballPos = ballRef.current.translation()
 
-    if (cameraMode === 'manual') {
-      // Manual orbit mode - orbit around the ball at the user-controlled angle
-      const orbitRadius = cameraDistance
-      targetPosition.current.set(
-        ballPos.x + Math.sin(orbitAngle) * orbitRadius,
-        defaultHeight,
-        ballPos.z + Math.cos(orbitAngle) * orbitRadius
-      )
-      // Look at the ball
-      targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
+    // Fixed auto mode - calculate direction from ball to player (view from behind player)
+    const dirX = playerPos.x - ballPos.x
+    const dirZ = playerPos.z - ballPos.z
+    const distance = Math.sqrt(dirX * dirX + dirZ * dirZ)
 
-      // Fast response for manual mode
-      camera.position.lerp(targetPosition.current, 0.35)
+    // Normalize the direction (handle case when player and ball overlap)
+    let normX, normZ
+    if (distance > 0.01) {
+      normX = dirX / distance
+      normZ = dirZ / distance
     } else {
-      // Auto mode - calculate direction from ball to player (view from behind player)
-      const dirX = playerPos.x - ballPos.x
-      const dirZ = playerPos.z - ballPos.z
-      const distance = Math.sqrt(dirX * dirX + dirZ * dirZ)
+      // Default to looking from behind (positive Z)
+      normX = 0
+      normZ = 1
+    }
 
-      // Normalize the direction (handle case when player and ball overlap)
-      let normX, normZ
-      if (distance > 0.01) {
-        normX = dirX / distance
-        normZ = dirZ / distance
+    // Position camera behind player, in line with ball
+    targetPosition.current.set(
+      playerPos.x + normX * cameraDistance,
+      defaultHeight,
+      playerPos.z + normZ * cameraDistance
+    )
+    // Look at the ball
+    targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
+
+    // Slow camera movement with max speed clamping - creates smooth catch-up effect
+    const dx = targetPosition.current.x - camera.position.x
+    const dy = targetPosition.current.y - camera.position.y
+    const dz = targetPosition.current.z - camera.position.z
+    const distanceToTarget = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+    if (distanceToTarget > 0.01) {
+      // Calculate max movement this frame based on max speed
+      const maxMove = MAX_CAMERA_SPEED * delta
+
+      if (distanceToTarget <= maxMove) {
+        // Close enough, just move to target
+        camera.position.copy(targetPosition.current)
       } else {
-        // Default to looking from behind (positive Z)
-        normX = 0
-        normZ = 1
-      }
-
-      // Position camera behind player, in line with ball
-      targetPosition.current.set(
-        playerPos.x + normX * cameraDistance,
-        defaultHeight,
-        playerPos.z + normZ * cameraDistance
-      )
-      // Look at the ball
-      targetLookAt.current.set(ballPos.x, 0.1, ballPos.z)
-
-      // Slow camera movement with max speed clamping - creates smooth catch-up effect
-      const dx = targetPosition.current.x - camera.position.x
-      const dy = targetPosition.current.y - camera.position.y
-      const dz = targetPosition.current.z - camera.position.z
-      const distanceToTarget = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-      if (distanceToTarget > 0.01) {
-        // Calculate max movement this frame based on max speed
-        const maxMove = MAX_CAMERA_SPEED * delta
-
-        if (distanceToTarget <= maxMove) {
-          // Close enough, just move to target
-          camera.position.copy(targetPosition.current)
-        } else {
-          // Move at max speed towards target
-          const moveRatio = maxMove / distanceToTarget
-          camera.position.x += dx * moveRatio
-          camera.position.y += dy * moveRatio
-          camera.position.z += dz * moveRatio
-        }
+        // Move at max speed towards target
+        const moveRatio = maxMove / distanceToTarget
+        camera.position.x += dx * moveRatio
+        camera.position.y += dy * moveRatio
+        camera.position.z += dz * moveRatio
       }
     }
 
@@ -203,7 +189,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -261,7 +247,6 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
             ballRef={ballRef}
             onDraggingChange={onDraggingChange}
             onActionStateChange={onActionStateChange}
-            cameraMode={cameraMode}
           />
         )}
         {/* Drag controller for positioning mode */}
@@ -277,9 +262,8 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           activePlayerIndex={activePlayerIndex}
           ballRef={ballRef}
           isInMotion={isInMotion}
-          cameraMode={cameraMode}
+          cameraZoom={cameraZoom}
           orbitAngle={orbitAngle}
-          cameraHeight={cameraHeight}
           onCameraPositionChange={onCameraPositionChange}
           isPositioning={isPositioning}
         />
@@ -299,13 +283,9 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   const [goalCelebration, setGoalCelebration] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
 
-  // Camera control state
-  const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
-  const [orbitAngle, setOrbitAngle] = useState(isHomePlayer ? 0 : Math.PI) // Away player starts looking from opposite side
-  const [cameraHeight, setCameraHeight] = useState(2.5) // Camera height for vertical pan
-  const [isDraggingCamera, setIsDraggingCamera] = useState(false)
-  const [panDirection, setPanDirection] = useState(null) // 'left', 'right', 'up', 'down' for arrow panning
-  const lastMouseX = useRef(0)
+  // Camera control state - fixed viewpoint with zoom only
+  const [cameraZoom, setCameraZoom] = useState(1.0) // 0.0 = closest, 2.0 = farthest
+  const [orbitAngle, setOrbitAngle] = useState(isHomePlayer ? 0 : Math.PI) // Initial angle based on home/away
   const lastBallZ = useRef(null) // For goal detection
 
   // Multiplayer state
@@ -564,9 +544,13 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     }
   }, [historyIndex, selectionHistory])
 
-  // Toggle camera mode
-  const toggleCameraMode = useCallback(() => {
-    setCameraMode(mode => mode === 'auto' ? 'manual' : 'auto')
+  // Zoom controls
+  const zoomIn = useCallback(() => {
+    setCameraZoom(z => Math.max(0, z - 0.25))
+  }, [])
+
+  const zoomOut = useCallback(() => {
+    setCameraZoom(z => Math.min(2, z + 0.25))
   }, [])
 
   // Handle camera position changes for stand visibility
@@ -589,24 +573,6 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     })
   }, [pitchHalfWidth, pitchHalfLength])
 
-  // Camera drag handlers for manual mode and positioning mode
-  const handleCameraPointerDown = useCallback((e) => {
-    if (cameraMode !== 'manual' && gameStatus !== 'positioning') return
-    setIsDraggingCamera(true)
-    lastMouseX.current = e.clientX
-  }, [cameraMode, gameStatus])
-
-  const handleCameraPointerMove = useCallback((e) => {
-    if (!isDraggingCamera || (cameraMode !== 'manual' && gameStatus !== 'positioning')) return
-    const deltaX = e.clientX - lastMouseX.current
-    lastMouseX.current = e.clientX
-    // Adjust orbit angle based on horizontal drag - higher sensitivity for faster movement
-    setOrbitAngle(angle => angle + deltaX * 0.08)
-  }, [isDraggingCamera, cameraMode, gameStatus])
-
-  const handleCameraPointerUp = useCallback(() => {
-    setIsDraggingCamera(false)
-  }, [])
 
   // Handle reset - goes to positioning mode
   const handleReset = useCallback(() => {
@@ -624,30 +590,6 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     startPositioning()
   }, [startPositioning])
 
-  // Continuous panning with arrow buttons
-  useEffect(() => {
-    if (!panDirection) return
-    if (cameraMode !== 'manual' && gameStatus !== 'positioning') return
-
-    const panSpeed = 0.04 // Radians per frame for orbit
-    const heightSpeed = 0.05 // Units per frame for height
-    const minHeight = 1.0
-    const maxHeight = 5.0
-
-    const interval = setInterval(() => {
-      if (panDirection === 'left') {
-        setOrbitAngle(angle => angle + panSpeed)
-      } else if (panDirection === 'right') {
-        setOrbitAngle(angle => angle - panSpeed)
-      } else if (panDirection === 'up') {
-        setCameraHeight(h => Math.min(maxHeight, h + heightSpeed))
-      } else if (panDirection === 'down') {
-        setCameraHeight(h => Math.max(minHeight, h - heightSpeed))
-      }
-    }, 16) // ~60fps
-
-    return () => clearInterval(interval)
-  }, [panDirection, cameraMode, gameStatus])
 
   const buttonStyle = {
     padding: '8px',
@@ -666,13 +608,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   }
 
   return (
-    <div
-      style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}
-      onPointerDown={handleCameraPointerDown}
-      onPointerMove={handleCameraPointerMove}
-      onPointerUp={handleCameraPointerUp}
-      onPointerLeave={handleCameraPointerUp}
-    >
+    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
       <Canvas shadows>
         {/* Camera positioned behind the player looking at the ball */}
         <PerspectiveCamera
@@ -690,9 +626,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             playerRefs={playerRefs}
             prestonRefs={prestonRefs}
             ballRef={ballRef}
-            cameraMode={cameraMode}
+            cameraZoom={cameraZoom}
             orbitAngle={orbitAngle}
-            cameraHeight={cameraHeight}
             onGoal={handleGoal}
             lastBallZ={lastBallZ}
             onCameraPositionChange={handleCameraPositionChange}
@@ -857,118 +792,61 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Camera pan arrows - bottom left */}
-      {gameStatus !== 'completed' && (cameraMode === 'manual' || gameStatus === 'positioning') && (
+      {/* Zoom controls - bottom left */}
+      {gameStatus !== 'completed' && (
         <div style={{
           position: 'absolute',
           bottom: '20px',
           left: '20px',
           zIndex: 100,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 44px)',
-          gridTemplateRows: 'repeat(3, 44px)',
-          gap: '2px'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
         }}>
-          {/* Up arrow */}
-          <div style={{ gridColumn: 2, gridRow: 1 }}>
-            <button
-              onPointerDown={() => setPanDirection('up')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan up"
-              style={{
-                width: '44px',
-                height: '44px',
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ▲
-            </button>
-          </div>
-          {/* Left arrow */}
-          <div style={{ gridColumn: 1, gridRow: 2 }}>
-            <button
-              onPointerDown={() => setPanDirection('left')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan left"
-              style={{
-                width: '44px',
-                height: '44px',
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ◀
-            </button>
-          </div>
-          {/* Right arrow */}
-          <div style={{ gridColumn: 3, gridRow: 2 }}>
-            <button
-              onPointerDown={() => setPanDirection('right')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan right"
-              style={{
-                width: '44px',
-                height: '44px',
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ▶
-            </button>
-          </div>
-          {/* Down arrow */}
-          <div style={{ gridColumn: 2, gridRow: 3 }}>
-            <button
-              onPointerDown={() => setPanDirection('down')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan down"
-              style={{
-                width: '44px',
-                height: '44px',
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '8px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ▼
-            </button>
-          </div>
+          <button
+            onClick={zoomIn}
+            disabled={cameraZoom <= 0}
+            title="Zoom in"
+            style={{
+              width: '44px',
+              height: '44px',
+              background: cameraZoom <= 0 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '8px',
+              color: cameraZoom <= 0 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+              fontSize: '24px',
+              cursor: cameraZoom <= 0 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            +
+          </button>
+          <button
+            onClick={zoomOut}
+            disabled={cameraZoom >= 2}
+            title="Zoom out"
+            style={{
+              width: '44px',
+              height: '44px',
+              background: cameraZoom >= 2 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '8px',
+              color: cameraZoom >= 2 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+              fontSize: '24px',
+              cursor: cameraZoom >= 2 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            −
+          </button>
         </div>
       )}
 
-      {/* Top right buttons - settings only (moved down to avoid profile button) */}
+      {/* Top right buttons - settings and exit */}
       {gameStatus !== 'completed' && (
         <div style={{
           position: 'absolute',
@@ -1003,19 +881,6 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           >
             ⚙
           </button>
-          <button
-            onClick={toggleCameraMode}
-            disabled={isInMotion || gameStatus === 'positioning'}
-            title={cameraMode === 'manual' ? 'Ready' : 'Look around'}
-            style={{
-              ...buttonStyle,
-              background: (isInMotion || gameStatus === 'positioning') ? '#666' : (cameraMode === 'manual' ? '#ffcc00' : '#ff8844'),
-              color: cameraMode === 'manual' ? '#000' : '#fff',
-              cursor: (isInMotion || gameStatus === 'positioning') ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {cameraMode === 'manual' ? '✓' : '👁'}
-          </button>
         </div>
       )}
 
@@ -1031,25 +896,20 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         }}>
           <button
             onClick={selectPreviousPlayer}
-            disabled={historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')}
+            disabled={historyIndex === 0}
             title="Previous player"
             style={{
               ...buttonStyle,
-              background: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? '#666' : '#4488ff',
-              cursor: (historyIndex === 0 || (cameraMode === 'manual' && gameStatus !== 'positioning')) ? 'not-allowed' : 'pointer'
+              background: historyIndex === 0 ? '#666' : '#4488ff',
+              cursor: historyIndex === 0 ? 'not-allowed' : 'pointer'
             }}
           >
             ◀
           </button>
           <button
             onClick={selectNextPlayer}
-            disabled={cameraMode === 'manual' && gameStatus !== 'positioning'}
             title="Next player"
-            style={{
-              ...buttonStyle,
-              background: (cameraMode === 'manual' && gameStatus !== 'positioning') ? '#666' : '#4488ff',
-              cursor: (cameraMode === 'manual' && gameStatus !== 'positioning') ? 'not-allowed' : 'pointer'
-            }}
+            style={buttonStyle}
           >
             ▶
           </button>
