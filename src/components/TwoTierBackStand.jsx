@@ -10,6 +10,10 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
   const concreteDark = '#888888' // Darker concrete
   const railingColor = '#444444' // Safety railings
 
+  // Fan colors - claret theme (like Aston Villa supporters)
+  const claretColors = ['#670E36', '#7B1141', '#5A0C2F', '#8B1A4A', '#4D0A28']
+  const skinTone = '#ffdbac'
+
   // Seat dimensions - approximately player size (player height ~0.22)
   const seatWidth = 0.18 // Width of each seat
   const seatHeight = 0.20 // Height of seat back
@@ -83,6 +87,31 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
             )
           })
         )}
+
+        {/* Lower tier fans - claret supporters */}
+        {Array.from({ length: lowerTierRows }).map((_, row) =>
+          Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
+            const x = seatsStartX + seatIdx * seatSpacing
+            const y = 0.18 + row * rowRise
+            const z = standDepth / 4 - row * rowDepth
+            const fanColor = claretColors[(row + seatIdx) % claretColors.length]
+
+            return (
+              <group key={`lower-fan-${row}-${seatIdx}`} position={[x, y, z]}>
+                {/* Fan body */}
+                <mesh position={[0, 0.12, seatDepth * 0.25]} castShadow>
+                  <cylinderGeometry args={[0.05, 0.06, 0.18, 8]} />
+                  <meshStandardMaterial color={fanColor} />
+                </mesh>
+                {/* Fan head */}
+                <mesh position={[0, 0.25, seatDepth * 0.25]} castShadow>
+                  <sphereGeometry args={[0.04, 8, 8]} />
+                  <meshStandardMaterial color={skinTone} />
+                </mesh>
+              </group>
+            )
+          })
+        )}
       </group>
 
       {/* CONCOURSE / WALKWAY between tiers */}
@@ -144,6 +173,31 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
                 <mesh position={[0, -seatHeight * 0.35, seatDepth * 0.25]} castShadow>
                   <boxGeometry args={[seatWidth * 0.85, seatHeight * 0.3, seatDepth * 0.5]} />
                   <meshStandardMaterial color={seatColorChoice} />
+                </mesh>
+              </group>
+            )
+          })
+        )}
+
+        {/* Upper tier fans - claret supporters */}
+        {Array.from({ length: upperTierRows }).map((_, row) =>
+          Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
+            const x = seatsStartX + seatIdx * seatSpacing
+            const y = 0.18 + row * rowRise
+            const z = -standDepth * 0.1 - row * rowDepth
+            const fanColor = claretColors[(row + seatIdx + 2) % claretColors.length]
+
+            return (
+              <group key={`upper-fan-${row}-${seatIdx}`} position={[x, y, z]}>
+                {/* Fan body */}
+                <mesh position={[0, 0.12, seatDepth * 0.25]} castShadow>
+                  <cylinderGeometry args={[0.05, 0.06, 0.18, 8]} />
+                  <meshStandardMaterial color={fanColor} />
+                </mesh>
+                {/* Fan head */}
+                <mesh position={[0, 0.25, seatDepth * 0.25]} castShadow>
+                  <sphereGeometry args={[0.04, 8, 8]} />
+                  <meshStandardMaterial color={skinTone} />
                 </mesh>
               </group>
             )
