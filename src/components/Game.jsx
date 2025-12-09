@@ -713,7 +713,7 @@ function Game() {
           zIndex: 100,
           pointerEvents: 'none'
         }}>
-          Position Mode - Drag player to move, use arrows to pan camera
+          Position Mode - Click pitch to move player, or drag near player
         </div>
       )}
 
