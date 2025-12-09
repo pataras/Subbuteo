@@ -42,7 +42,7 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
 
   // Calculate number of advertising boards based on pitch length
   const numSideBoards = Math.max(4, Math.floor(pitchLength / 1.5))
-  const boardSpacing = (pitchLength - 1.5) / numSideBoards
+  const boardLength = pitchLength / numSideBoards
 
   // Goal dimensions (scaled proportionally)
   const goalWidth = 0.7 * widthScale
@@ -313,10 +313,10 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
       {Array.from({ length: numSideBoards }).map((_, i) => (
         <mesh
           key={`left-${i}`}
-          position={[-halfWidth - boardingThickness / 2, boardingHeight / 2, -halfLength + 0.75 + i * boardSpacing]}
+          position={[-halfWidth - boardingThickness / 2, boardingHeight / 2, -halfLength + boardLength / 2 + i * boardLength]}
           castShadow
         >
-          <boxGeometry args={[boardingThickness, boardingHeight, boardSpacing * 0.95]} />
+          <boxGeometry args={[boardingThickness, boardingHeight, boardLength]} />
           <meshStandardMaterial color={sponsorColors[i % sponsorColors.length]} />
         </mesh>
       ))}
@@ -325,10 +325,10 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
       {Array.from({ length: numSideBoards }).map((_, i) => (
         <mesh
           key={`right-${i}`}
-          position={[halfWidth + boardingThickness / 2, boardingHeight / 2, -halfLength + 0.75 + i * boardSpacing]}
+          position={[halfWidth + boardingThickness / 2, boardingHeight / 2, -halfLength + boardLength / 2 + i * boardLength]}
           castShadow
         >
-          <boxGeometry args={[boardingThickness, boardingHeight, boardSpacing * 0.95]} />
+          <boxGeometry args={[boardingThickness, boardingHeight, boardLength]} />
           <meshStandardMaterial color={sponsorColors[(i + 3) % sponsorColors.length]} />
         </mesh>
       ))}
