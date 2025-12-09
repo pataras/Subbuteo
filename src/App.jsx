@@ -2,8 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { GameProvider } from './contexts/GameContext'
 import { SettingsProvider } from './contexts/SettingsContext'
+import { MatchProvider, useMatch } from './contexts/MatchContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
+import MatchLobby from './components/MatchLobby'
+import WaitingRoom from './components/WaitingRoom'
 
 function ProfileDropdown() {
   const { currentUser, logout } = useAuth()
@@ -60,22 +63,105 @@ function ProfileDropdown() {
   )
 }
 
+// Screen states: 'lobby' | 'waiting' | 'game'
 function AppContent() {
   const { currentUser } = useAuth()
+  const [screen, setScreen] = useState('lobby')
+  const [currentMatchId, setCurrentMatchId] = useState(null)
+  const [currentMatchData, setCurrentMatchData] = useState(null)
+  const [isHomePlayer, setIsHomePlayer] = useState(true)
 
   if (!currentUser) {
     return <AuthScreen />
   }
 
+  const handleMatchCreated = (matchId, matchData) => {
+    setCurrentMatchId(matchId)
+    setCurrentMatchData(matchData)
+    setIsHomePlayer(true)
+    setScreen('waiting')
+  }
+
+  const handleMatchAccepted = (matchId, matchData) => {
+    setCurrentMatchId(matchId)
+    setCurrentMatchData(matchData)
+    setIsHomePlayer(false)
+    setScreen('waiting')
+  }
+
+  const handleStartGame = (matchData) => {
+    setCurrentMatchData(matchData)
+    setScreen('game')
+  }
+
+  const handleCancelMatch = () => {
+    setCurrentMatchId(null)
+    setCurrentMatchData(null)
+    setScreen('lobby')
+  }
+
+  const handleBackToLobby = () => {
+    setCurrentMatchId(null)
+    setCurrentMatchData(null)
+    setScreen('lobby')
+  }
+
   return (
     <SettingsProvider>
-      <GameProvider>
-        <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-          <ProfileDropdown />
-          <Game />
-        </div>
-      </GameProvider>
+      <MatchProvider>
+        <GameProvider>
+          <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+            <ProfileDropdown />
+
+            {screen === 'lobby' && (
+              <MatchLobby
+                onMatchCreated={handleMatchCreated}
+                onMatchAccepted={handleMatchAccepted}
+              />
+            )}
+
+            {screen === 'waiting' && (
+              <WaitingRoom
+                matchId={currentMatchId}
+                matchData={currentMatchData}
+                isHomePlayer={isHomePlayer}
+                onStartGame={handleStartGame}
+                onCancel={handleCancelMatch}
+              />
+            )}
+
+            {screen === 'game' && (
+              <GameWrapper
+                matchId={currentMatchId}
+                matchData={currentMatchData}
+                isHomePlayer={isHomePlayer}
+                onBackToLobby={handleBackToLobby}
+              />
+            )}
+          </div>
+        </GameProvider>
+      </MatchProvider>
     </SettingsProvider>
+  )
+}
+
+// Wrapper to pass multiplayer props to Game
+function GameWrapper({ matchId, matchData, isHomePlayer, onBackToLobby }) {
+  const { startMultiplayerMatch } = useMatch()
+
+  useEffect(() => {
+    if (matchId && matchData) {
+      startMultiplayerMatch(matchId, matchData, isHomePlayer)
+    }
+  }, [matchId, matchData, isHomePlayer, startMultiplayerMatch])
+
+  return (
+    <Game
+      matchId={matchId}
+      matchData={matchData}
+      isHomePlayer={isHomePlayer}
+      onBackToLobby={onBackToLobby}
+    />
   )
 }
 

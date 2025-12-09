@@ -12,6 +12,8 @@ import PlayerDragController from './PlayerDragController'
 import SettingsPanel from './SettingsPanel'
 import { useGame, TEAMS } from '../contexts/GameContext'
 import { useSettings } from '../contexts/SettingsContext'
+import { useMatch } from '../contexts/MatchContext'
+import GameStateService from '../services/GameStateService'
 
 // Stand dimensions (fixed)
 const STAND_DEPTH = 1.2
@@ -181,7 +183,9 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs }) {
+  // Use the correct team refs based on which player we are
+  const activeTeamRefs = myTeamRefs || playerRefs
   return (
     <>
       {/* Lighting */}
@@ -231,7 +235,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
         {/* Flick controller for gameplay - only active during play */}
         {!isPositioning && !isCompleted && (
           <FlickController
-            playerRef={playerRefs.current[activePlayerIndex]}
+            playerRef={activeTeamRefs.current[activePlayerIndex]}
             ballRef={ballRef}
             onDraggingChange={onDraggingChange}
             onActionStateChange={onActionStateChange}
@@ -240,14 +244,14 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
         )}
         {/* Drag controller for positioning mode */}
         <PlayerDragController
-          playerRef={playerRefs.current[activePlayerIndex]}
+          playerRef={activeTeamRefs.current[activePlayerIndex]}
           isPositioning={isPositioning}
         />
         {/* Goal detection */}
         <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} pitchSettings={pitchSettings} />
         {/* Camera controller - inside Physics so refs are populated */}
         <CameraController
-          playerRefs={playerRefs}
+          playerRefs={activeTeamRefs}
           activePlayerIndex={activePlayerIndex}
           ballRef={ballRef}
           isInMotion={isInMotion}
@@ -263,7 +267,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
 }
 
 // Main game component with canvas setup
-function Game() {
+function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
   const [isFlicking, setIsFlicking] = useState(false)
   const [isInMotion, setIsInMotion] = useState(false)
   const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with Yorke (striker)
@@ -275,12 +279,17 @@ function Game() {
 
   // Camera control state
   const [cameraMode, setCameraMode] = useState('auto') // 'auto' or 'manual'
-  const [orbitAngle, setOrbitAngle] = useState(0) // Angle for manual orbit mode
+  const [orbitAngle, setOrbitAngle] = useState(isHomePlayer ? 0 : Math.PI) // Away player starts looking from opposite side
   const [cameraHeight, setCameraHeight] = useState(2.5) // Camera height for vertical pan
   const [isDraggingCamera, setIsDraggingCamera] = useState(false)
   const [panDirection, setPanDirection] = useState(null) // 'left', 'right', 'up', 'down' for arrow panning
   const lastMouseX = useRef(0)
   const lastBallZ = useRef(null) // For goal detection
+
+  // Multiplayer state
+  const { syncGameState, remoteGameState, startPolling, isMultiplayer } = useMatch()
+  const [lastSyncedState, setLastSyncedState] = useState(null)
+  const syncTimeoutRef = useRef(null)
 
   // Settings from context
   const { settings, settingsVersion } = useSettings()
@@ -317,12 +326,119 @@ function Game() {
     loadGame
   } = useGame()
 
+  // Determine which team the player controls
+  const myTeamRefs = isHomePlayer ? playerRefs : prestonRefs
+  const opponentTeamRefs = isHomePlayer ? prestonRefs : playerRefs
+  const myTeam = isHomePlayer ? 'home' : 'away'
+  const myTeamPlayers = isHomePlayer ? ASTON_VILLA_PLAYERS : PRESTON_PLAYERS
+
   // Start in positioning mode on mount
   useEffect(() => {
     if (gameStatus === 'not_started') {
       startPositioning()
     }
   }, [gameStatus, startPositioning])
+
+  // Start polling for game state updates in multiplayer mode
+  useEffect(() => {
+    if (isMultiplayer && gameStatus === 'in_progress') {
+      const cleanup = startPolling()
+      return cleanup
+    }
+  }, [isMultiplayer, gameStatus, startPolling])
+
+  // Apply remote game state updates from the other player
+  useEffect(() => {
+    if (!remoteGameState || !isMultiplayer) return
+
+    // Check if this is a new update
+    if (lastSyncedState && remoteGameState.lastUpdatedAt === lastSyncedState.lastUpdatedAt) {
+      return
+    }
+
+    setLastSyncedState(remoteGameState)
+
+    // Apply opponent player positions
+    const opponentPositions = isHomePlayer
+      ? remoteGameState.players?.away
+      : remoteGameState.players?.home
+
+    if (opponentPositions && opponentTeamRefs.current) {
+      opponentPositions.forEach((playerData, index) => {
+        const ref = opponentTeamRefs.current[index]
+        if (ref?.current && playerData.position) {
+          ref.current.setTranslation({
+            x: playerData.position.x,
+            y: playerData.position.y,
+            z: playerData.position.z
+          }, true)
+          // Reset velocity when teleporting
+          ref.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+          ref.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+        }
+      })
+    }
+
+    // Apply ball position from remote state
+    if (remoteGameState.ball?.position && ballRef.current) {
+      ballRef.current.setTranslation({
+        x: remoteGameState.ball.position.x,
+        y: remoteGameState.ball.position.y,
+        z: remoteGameState.ball.position.z
+      }, true)
+      // Reset velocity when teleporting
+      ballRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+      ballRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+    }
+  }, [remoteGameState, isMultiplayer, isHomePlayer, opponentTeamRefs, lastSyncedState])
+
+  // Sync game state after motion stops (player finished flicking)
+  const syncAfterMove = useCallback(() => {
+    if (!isMultiplayer || !matchId) return
+
+    // Extract current positions
+    const { homePlayers, awayPlayers, ballPosition } = GameStateService.extractCurrentPositions(
+      playerRefs,
+      ballRef,
+      prestonRefs
+    )
+
+    const gameState = {
+      players: {
+        home: ASTON_VILLA_PLAYERS.map((p, i) => ({
+          ...p,
+          position: homePlayers[i]?.position || { x: p.position[0], y: p.position[1], z: p.position[2] }
+        })),
+        away: PRESTON_PLAYERS.map((p, i) => ({
+          ...p,
+          position: awayPlayers[i]?.position || { x: p.position[0], y: p.position[1], z: p.position[2] }
+        }))
+      },
+      ball: { position: ballPosition },
+      score,
+      goals
+    }
+
+    syncGameState(gameState)
+  }, [isMultiplayer, matchId, score, goals, syncGameState])
+
+  // Watch for motion stop to trigger sync
+  useEffect(() => {
+    if (isMultiplayer && !isInMotion && gameStatus === 'in_progress') {
+      // Small delay to ensure physics has settled
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current)
+      }
+      syncTimeoutRef.current = setTimeout(() => {
+        syncAfterMove()
+      }, 500)
+    }
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current)
+      }
+    }
+  }, [isInMotion, isMultiplayer, gameStatus, syncAfterMove])
 
   // Handle goal scored
   const handleGoal = useCallback((scoringTeam) => {
@@ -538,6 +654,8 @@ function Game() {
             isPositioning={gameStatus === 'positioning'}
             isCompleted={gameStatus === 'completed'}
             pitchSettings={settings.pitch}
+            isHomePlayer={isHomePlayer}
+            myTeamRefs={myTeamRefs}
           />
         </Suspense>
 
@@ -545,10 +663,42 @@ function Game() {
         <color attach="background" args={['#87ceeb']} />
       </Canvas>
 
+      {/* Your team indicator (multiplayer) */}
+      {matchId && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.85)',
+          padding: '6px 16px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: `2px solid ${isHomePlayer ? TEAMS.ASTON_VILLA.color : TEAMS.PRESTON.color}`,
+          zIndex: 100,
+          pointerEvents: 'none'
+        }}>
+          <span style={{ color: '#aaa', fontSize: '12px' }}>You control:</span>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            background: isHomePlayer ? TEAMS.ASTON_VILLA.color : TEAMS.PRESTON.color,
+            borderRadius: '2px',
+            border: '1px solid white'
+          }} />
+          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
+            {isHomePlayer ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name}
+          </span>
+        </div>
+      )}
+
       {/* Scoreboard */}
       <div style={{
         position: 'absolute',
-        top: '10px',
+        top: matchId ? '50px' : '10px',
         left: '10px',
         background: 'rgba(0,0,0,0.85)',
         padding: '6px 12px',
@@ -658,18 +808,34 @@ function Game() {
              score.away > score.home ? `${TEAMS.PRESTON.name} wins!` :
              'Draw!'}
           </div>
-          <button
-            onClick={handleReset}
-            style={{
-              ...buttonStyle,
-              width: 'auto',
-              padding: '12px 30px',
-              fontSize: '18px',
-              background: '#44cc44'
-            }}
-          >
-            Play Again
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button
+              onClick={handleReset}
+              style={{
+                ...buttonStyle,
+                width: 'auto',
+                padding: '12px 30px',
+                fontSize: '18px',
+                background: '#44cc44'
+              }}
+            >
+              Play Again
+            </button>
+            {onBackToLobby && (
+              <button
+                onClick={onBackToLobby}
+                style={{
+                  ...buttonStyle,
+                  width: 'auto',
+                  padding: '12px 30px',
+                  fontSize: '18px',
+                  background: '#666'
+                }}
+              >
+                Back to Lobby
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -838,6 +1004,19 @@ function Game() {
           display: 'flex',
           gap: '8px'
         }}>
+          {onBackToLobby && (
+            <button
+              onClick={onBackToLobby}
+              title="Back to Lobby"
+              style={{
+                ...buttonStyle,
+                background: '#cc4444',
+                fontSize: '14px'
+              }}
+            >
+              ✕
+            </button>
+          )}
           <button
             onClick={() => setShowSettings(true)}
             title="Game Settings"
