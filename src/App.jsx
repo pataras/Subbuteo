@@ -9,9 +9,10 @@ import MatchLobby from './components/MatchLobby'
 import WaitingRoom from './components/WaitingRoom'
 import TeamSelection from './components/TeamSelection'
 import PlayerSelection from './components/PlayerSelection'
+import AdminPanel from './components/admin/AdminPanel'
 
-function ProfileDropdown() {
-  const { currentUser, logout } = useAuth()
+function ProfileDropdown({ onAdminClick }) {
+  const { currentUser, logout, canAccessAdmin, userProfile } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -31,6 +32,11 @@ function ProfileDropdown() {
     if (!email) return '?'
     const name = email.split('@')[0]
     return name.substring(0, 2).toUpperCase()
+  }
+
+  const handleAdminClick = () => {
+    setIsOpen(false)
+    onAdminClick()
   }
 
   return (
@@ -55,7 +61,20 @@ function ProfileDropdown() {
 
       {isOpen && (
         <div style={dropdownMenuStyle}>
-          <div style={dropdownEmailStyle}>{currentUser.email}</div>
+          <div style={dropdownEmailStyle}>
+            {userProfile?.name || currentUser.email}
+            {userProfile?.roles?.includes('admin') && (
+              <span style={adminBadgeStyle}>Admin</span>
+            )}
+            {userProfile?.roles?.includes('group_organiser') && !userProfile?.roles?.includes('admin') && (
+              <span style={organiserBadgeStyle}>Organiser</span>
+            )}
+          </div>
+          {canAccessAdmin() && (
+            <button onClick={handleAdminClick} style={adminButtonStyle}>
+              Admin Panel
+            </button>
+          )}
           <button onClick={logout} style={signOutButtonStyle}>
             Sign Out
           </button>
@@ -65,7 +84,7 @@ function ProfileDropdown() {
   )
 }
 
-// Screen states: 'lobby' | 'team-select' | 'player-select' | 'waiting' | 'game'
+// Screen states: 'lobby' | 'team-select' | 'player-select' | 'waiting' | 'game' | 'admin'
 function AppContent() {
   const { currentUser } = useAuth()
   const [screen, setScreen] = useState('lobby')
@@ -78,6 +97,10 @@ function AppContent() {
 
   if (!currentUser) {
     return <AuthScreen />
+  }
+
+  const handleAdminClick = () => {
+    setScreen('admin')
   }
 
   const handleMatchCreated = (matchId, matchData) => {
@@ -149,7 +172,7 @@ function AppContent() {
       <MatchProvider>
         <GameProvider>
           <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-            <ProfileDropdown />
+            {screen !== 'admin' && <ProfileDropdown onAdminClick={handleAdminClick} />}
 
             {screen === 'lobby' && (
               <MatchLobby
@@ -196,6 +219,10 @@ function AppContent() {
                 selectedPlayers={selectedPlayers}
                 onBackToLobby={handleBackToLobby}
               />
+            )}
+
+            {screen === 'admin' && (
+              <AdminPanel onBack={handleBackToLobby} />
             )}
           </div>
         </GameProvider>
@@ -301,6 +328,43 @@ const signOutButtonStyle = {
   cursor: 'pointer',
   textAlign: 'left',
   fontFamily: 'sans-serif',
+}
+
+const adminButtonStyle = {
+  width: '100%',
+  padding: '8px 12px',
+  fontSize: '14px',
+  color: 'white',
+  backgroundColor: 'transparent',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontFamily: 'sans-serif',
+}
+
+const adminBadgeStyle = {
+  display: 'inline-block',
+  marginLeft: '8px',
+  padding: '2px 6px',
+  fontSize: '10px',
+  fontWeight: 'bold',
+  backgroundColor: '#e74c3c',
+  color: 'white',
+  borderRadius: '4px',
+  textTransform: 'uppercase',
+}
+
+const organiserBadgeStyle = {
+  display: 'inline-block',
+  marginLeft: '8px',
+  padding: '2px 6px',
+  fontSize: '10px',
+  fontWeight: 'bold',
+  backgroundColor: '#3498db',
+  color: 'white',
+  borderRadius: '4px',
+  textTransform: 'uppercase',
 }
 
 function App() {

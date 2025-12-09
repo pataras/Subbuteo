@@ -8,6 +8,7 @@ import {
   signInWithPopup
 } from 'firebase/auth'
 import { auth } from '../firebase'
+import { UserService } from '../services/UserService'
 
 const AuthContext = createContext()
 
@@ -17,7 +18,25 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  async function fetchUserProfile(user) {
+    if (!user) {
+      setUserProfile(null)
+      return null
+    }
+
+    // Try to get user profile by email
+    const result = await UserService.getUserByEmail(user.email)
+    if (result.success) {
+      setUserProfile(result.data)
+      return result.data
+    }
+
+    setUserProfile(null)
+    return null
+  }
 
   function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password)
@@ -28,6 +47,7 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    setUserProfile(null)
     return signOut(auth)
   }
 
@@ -36,9 +56,39 @@ export function AuthProvider({ children }) {
     return signInWithPopup(auth, provider)
   }
 
+  // Role checking helpers
+  function hasRole(role) {
+    return userProfile?.roles?.includes(role) || false
+  }
+
+  function isAdmin() {
+    return hasRole('admin')
+  }
+
+  function isGroupOrganiser() {
+    return hasRole('group_organiser')
+  }
+
+  function canAccessAdmin() {
+    return isAdmin() || isGroupOrganiser()
+  }
+
+  // Refresh user profile
+  async function refreshUserProfile() {
+    if (currentUser) {
+      return await fetchUserProfile(currentUser)
+    }
+    return null
+  }
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
+      if (user) {
+        await fetchUserProfile(user)
+      } else {
+        setUserProfile(null)
+      }
       setLoading(false)
     })
 
@@ -47,10 +97,16 @@ export function AuthProvider({ children }) {
 
   const value = {
     currentUser,
+    userProfile,
     signup,
     login,
     logout,
-    loginWithGoogle
+    loginWithGoogle,
+    hasRole,
+    isAdmin,
+    isGroupOrganiser,
+    canAccessAdmin,
+    refreshUserProfile
   }
 
   return (
