@@ -53,6 +53,7 @@ export function GameProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaveTime, setLastSaveTime] = useState(null)
   const [savedGames, setSavedGames] = useState([])
+  const [isPracticeMode, setIsPracticeMode] = useState(false)
 
   // Track last known scorer for goal detection
   const lastScorerRef = useRef(null)
@@ -60,7 +61,7 @@ export function GameProvider({ children }) {
   // Match duration limit (1 minute = 60 seconds)
   const MATCH_DURATION_LIMIT = 60
 
-  // Timer for match duration - ends game after 1 minute
+  // Timer for match duration - ends game after 1 minute (unless in practice mode)
   useEffect(() => {
     let interval
     if (gameStatus === 'in_progress' && matchStartTime) {
@@ -68,14 +69,14 @@ export function GameProvider({ children }) {
         const elapsed = Math.floor((Date.now() - matchStartTime) / 1000)
         setMatchDuration(elapsed)
 
-        // End game after 1 minute
-        if (elapsed >= MATCH_DURATION_LIMIT) {
+        // End game after 1 minute (but not in practice mode)
+        if (!isPracticeMode && elapsed >= MATCH_DURATION_LIMIT) {
           setGameStatus('completed')
         }
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [gameStatus, matchStartTime])
+  }, [gameStatus, matchStartTime, isPracticeMode])
 
   // Start positioning mode (for setting up players)
   const startPositioning = useCallback(() => {
@@ -288,6 +289,7 @@ export function GameProvider({ children }) {
     isLoading,
     lastSaveTime,
     savedGames,
+    isPracticeMode,
 
     // Actions
     startNewGame,
@@ -303,6 +305,7 @@ export function GameProvider({ children }) {
     resumeGame,
     endGame,
     setCurrentTurn,
+    setIsPracticeMode,
 
     // Team configurations
     TEAMS

@@ -267,7 +267,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
 }
 
 // Main game component with canvas setup
-function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
+function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onBackToLobby }) {
   const [isFlicking, setIsFlicking] = useState(false)
   const [isInMotion, setIsInMotion] = useState(false)
   const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with Yorke (striker)
@@ -323,7 +323,8 @@ function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
     finishPositioning,
     savedGames,
     fetchSavedGames,
-    loadGame
+    loadGame,
+    setIsPracticeMode
   } = useGame()
 
   // Determine which team the player controls
@@ -331,6 +332,12 @@ function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
   const opponentTeamRefs = isHomePlayer ? prestonRefs : playerRefs
   const myTeam = isHomePlayer ? 'home' : 'away'
   const myTeamPlayers = isHomePlayer ? ASTON_VILLA_PLAYERS : PRESTON_PLAYERS
+
+  // Set practice mode in context
+  useEffect(() => {
+    setIsPracticeMode(isPractice)
+    return () => setIsPracticeMode(false)
+  }, [isPractice, setIsPracticeMode])
 
   // Start in positioning mode on mount
   useEffect(() => {
@@ -695,10 +702,37 @@ function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
         </div>
       )}
 
+      {/* Practice mode indicator */}
+      {isPractice && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.85)',
+          padding: '6px 16px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: '2px solid #2196F3',
+          zIndex: 100,
+          pointerEvents: 'none'
+        }}>
+          <span style={{ color: '#2196F3', fontSize: '14px', fontWeight: 'bold' }}>
+            Practice Mode
+          </span>
+          <span style={{ color: '#888', fontSize: '12px' }}>
+            No time limit
+          </span>
+        </div>
+      )}
+
       {/* Scoreboard */}
       <div style={{
         position: 'absolute',
-        top: matchId ? '50px' : '10px',
+        top: (matchId || isPractice) ? '50px' : '10px',
         left: '10px',
         background: 'rgba(0,0,0,0.85)',
         padding: '6px 12px',
@@ -1007,14 +1041,16 @@ function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
           {onBackToLobby && (
             <button
               onClick={onBackToLobby}
-              title="Back to Lobby"
+              title="Exit to Lobby"
               style={{
                 ...buttonStyle,
                 background: '#cc4444',
-                fontSize: '14px'
+                fontSize: isPractice ? '12px' : '14px',
+                width: isPractice ? 'auto' : '40px',
+                padding: isPractice ? '8px 12px' : '8px'
               }}
             >
-              ✕
+              {isPractice ? 'Exit' : '✕'}
             </button>
           )}
           <button
@@ -1094,7 +1130,7 @@ function Game({ matchId, matchData, isHomePlayer = true, onBackToLobby }) {
       {goals.length > 0 && (
         <div style={{
           position: 'absolute',
-          top: '50px',
+          top: (matchId || isPractice) ? '90px' : '50px',
           left: '10px',
           background: 'rgba(0,0,0,0.8)',
           padding: '12px 16px',

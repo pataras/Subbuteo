@@ -4,7 +4,7 @@ import MatchService from '../services/MatchService'
 
 const DEFAULT_INVITE_EMAIL = 'Oli@taras.co.uk'
 
-function MatchLobby({ onMatchCreated, onMatchAccepted, onBack }) {
+function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onBack }) {
   const { currentUser } = useAuth()
   const [inviteEmail, setInviteEmail] = useState(DEFAULT_INVITE_EMAIL)
   const [isCreating, setIsCreating] = useState(false)
@@ -99,7 +99,23 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onBack }) {
   return (
     <div style={containerStyle}>
       <div style={panelStyle}>
-        <h1 style={titleStyle}>Create Match</h1>
+        <h1 style={titleStyle}>Subbuteo</h1>
+
+        {/* Practice match section */}
+        <div style={sectionStyle}>
+          <button
+            onClick={onPracticeMatch}
+            style={practiceButtonStyle}
+          >
+            Practice Match
+          </button>
+          <p style={practiceHintStyle}>Solo practice with one team, no time limit</p>
+        </div>
+
+        {/* Divider */}
+        <div style={dividerStyle}>
+          <span style={dividerTextStyle}>or</span>
+        </div>
 
         {/* Create new match section */}
         <div style={sectionStyle}>
@@ -257,6 +273,42 @@ const primaryButtonStyle = {
   borderRadius: '8px',
   cursor: 'pointer',
   fontFamily: 'sans-serif',
+}
+
+const practiceButtonStyle = {
+  width: '100%',
+  padding: '16px',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  color: 'white',
+  backgroundColor: '#2196F3',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontFamily: 'sans-serif',
+}
+
+const practiceHintStyle = {
+  color: '#888',
+  fontSize: '12px',
+  marginTop: '8px',
+  textAlign: 'center',
+  fontFamily: 'sans-serif',
+}
+
+const dividerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  margin: '20px 0',
+}
+
+const dividerTextStyle = {
+  flex: 1,
+  textAlign: 'center',
+  color: '#666',
+  fontSize: '14px',
+  fontFamily: 'sans-serif',
+  position: 'relative',
 }
 
 const errorStyle = {
