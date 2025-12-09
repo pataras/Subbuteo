@@ -3,8 +3,14 @@ import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import { Text } from '@react-three/drei'
 import { useSettings } from '../contexts/SettingsContext'
 
-// Subbuteo-style player figure with more human-like proportions
-const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff0000', number, name }, ref) {
+// Subbuteo-style player figure with kit customization support
+const Player = forwardRef(function Player({
+  position = [0, 0, 0],
+  color = '#ff0000',
+  number,
+  name,
+  kit = null,  // Kit configuration object
+}, ref) {
   const { settings } = useSettings()
   const { mass, restitution, friction, linearDamping, angularDamping } = settings.player
 
@@ -16,6 +22,29 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
   // Head position for facial features
   const headY = baseHeight + playerHeight * 0.67
   const headRadius = 0.026
+
+  // Kit colors - use kit object if provided, otherwise fall back to color prop
+  const shirtColor = kit?.primary || color
+  const sleeveColor = kit?.sleeveStyle === 'contrast' ? (kit?.secondary || color) : shirtColor
+  const shortsColor = kit?.shorts || '#ffffff'
+  const collarColor = kit?.collarColor || kit?.secondary || shirtColor
+
+  // Determine text color based on shirt brightness
+  const getContrastColor = (hexColor) => {
+    const hex = hexColor.replace('#', '')
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 128 ? '#001B44' : '#FFFFFF'
+  }
+
+  const textColor = getContrastColor(shirtColor)
+  const outlineColor = getContrastColor(shirtColor) === '#FFFFFF' ? '#000000' : '#FFFFFF'
+
+  // Stripe pattern for shirts (if kit has stripes)
+  const hasStripes = kit?.pattern === 'stripes' || kit?.pattern === 'pinstripe'
+  const stripeColor = kit?.stripeColor || kit?.secondary || '#FFFFFF'
 
   return (
     <RigidBody
@@ -63,31 +92,71 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
         {/* Shorts/hips - wider at hips */}
         <mesh position={[0, baseHeight + playerHeight * 0.15, 0]} castShadow>
           <cylinderGeometry args={[0.032, 0.038, playerHeight * 0.15, 16]} />
-          <meshStandardMaterial color="#ffffff" />
+          <meshStandardMaterial color={shortsColor} />
         </mesh>
 
         {/* Lower torso/waist - tapered */}
         <mesh position={[0, baseHeight + playerHeight * 0.28, 0]} castShadow>
           <cylinderGeometry args={[0.028, 0.032, playerHeight * 0.12, 16]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={shirtColor} />
         </mesh>
 
         {/* Upper torso/chest - broader shoulders */}
         <mesh position={[0, baseHeight + playerHeight * 0.42, 0]} castShadow>
           <cylinderGeometry args={[0.035, 0.028, playerHeight * 0.18, 16]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={shirtColor} />
         </mesh>
+
+        {/* Stripe detail on torso (for striped kits) */}
+        {hasStripes && (
+          <>
+            <mesh position={[0.012, baseHeight + playerHeight * 0.35, 0.025]} castShadow>
+              <boxGeometry args={[0.003, playerHeight * 0.25, 0.002]} />
+              <meshStandardMaterial color={stripeColor} />
+            </mesh>
+            <mesh position={[-0.012, baseHeight + playerHeight * 0.35, 0.025]} castShadow>
+              <boxGeometry args={[0.003, playerHeight * 0.25, 0.002]} />
+              <meshStandardMaterial color={stripeColor} />
+            </mesh>
+          </>
+        )}
 
         {/* Shoulders - capsule shape for broader look */}
         <mesh position={[0, baseHeight + playerHeight * 0.48, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <capsuleGeometry args={[0.016, 0.035, 4, 8]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={shirtColor} />
         </mesh>
 
-        {/* Left arm - upper arm close to body */}
+        {/* Collar - different styles */}
+        {kit?.collar === 'v-neck' && (
+          <mesh position={[0, baseHeight + playerHeight * 0.52, 0.012]} rotation={[0.3, 0, 0]} castShadow>
+            <coneGeometry args={[0.012, 0.015, 3]} />
+            <meshStandardMaterial color={collarColor} />
+          </mesh>
+        )}
+        {kit?.collar === 'polo' && (
+          <>
+            <mesh position={[0, baseHeight + playerHeight * 0.53, 0]} castShadow>
+              <cylinderGeometry args={[0.016, 0.018, 0.012, 12]} />
+              <meshStandardMaterial color={collarColor} />
+            </mesh>
+            <mesh position={[0, baseHeight + playerHeight * 0.535, 0.015]} rotation={[-0.3, 0, 0]} scale={[0.6, 1, 0.3]} castShadow>
+              <boxGeometry args={[0.012, 0.01, 0.008]} />
+              <meshStandardMaterial color={collarColor} />
+            </mesh>
+          </>
+        )}
+        {(kit?.collar === 'round' || kit?.collar === 'striped' || !kit?.collar) && (
+          <mesh position={[0, baseHeight + playerHeight * 0.52, 0]} castShadow>
+            <torusGeometry args={[0.014, 0.004, 8, 16]} />
+            <meshStandardMaterial color={collarColor} />
+          </mesh>
+        )}
+
+        {/* Left arm - upper arm (sleeve color) */}
         <mesh position={[-0.042, baseHeight + playerHeight * 0.40, 0.005]} rotation={[0.15, 0, Math.PI * 0.08]} castShadow>
           <cylinderGeometry args={[0.009, 0.011, 0.04, 8]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={sleeveColor} />
         </mesh>
 
         {/* Left arm - forearm bent inward (skin) */}
@@ -102,10 +171,10 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
           <meshStandardMaterial color="#ffdbac" />
         </mesh>
 
-        {/* Right arm - upper arm close to body */}
+        {/* Right arm - upper arm (sleeve color) */}
         <mesh position={[0.042, baseHeight + playerHeight * 0.40, 0.005]} rotation={[0.15, 0, -Math.PI * 0.08]} castShadow>
           <cylinderGeometry args={[0.009, 0.011, 0.04, 8]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={sleeveColor} />
         </mesh>
 
         {/* Right arm - forearm bent inward (skin) */}
@@ -199,12 +268,12 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
             <Text
               position={[0, 0.032, 0]}
               fontSize={0.02}
-              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
+              color={textColor}
               anchorX="center"
               anchorY="middle"
               fontWeight="bold"
               outlineWidth={0.0016}
-              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
+              outlineColor={outlineColor}
             >
               {name.toUpperCase()}
             </Text>
@@ -214,12 +283,12 @@ const Player = forwardRef(function Player({ position = [0, 0, 0], color = '#ff00
             <Text
               position={[0, 0, 0]}
               fontSize={0.048}
-              color={color === '#FFFFFF' ? '#001B44' : '#FFFFFF'}
+              color={textColor}
               anchorX="center"
               anchorY="middle"
               fontWeight="bold"
               outlineWidth={0.0024}
-              outlineColor={color === '#FFFFFF' ? '#FFFFFF' : '#000000'}
+              outlineColor={outlineColor}
             >
               {number}
             </Text>
