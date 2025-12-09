@@ -16,25 +16,24 @@ const Player = forwardRef(function Player({
   const { mass, restitution, friction, linearDamping, angularDamping } = settings.player
 
   const baseRadius = 0.1
-  const bowlDepth = 0.025 // Depth of the bowl curve
-  const baseRimHeight = 0.015 // Height of the rim
-  const baseHeight = baseRimHeight // Height where base meets the figure
+  const rimHeight = 0.03 // Height of the rim above the pitch
+  const baseHeight = rimHeight // Height where base meets the figure
 
-  // Create bowl profile for lathe geometry - cereal bowl shape
+  // Create bowl profile for lathe geometry - cereal bowl shape that touches the pitch
   const bowlPoints = useMemo(() => {
     const points = []
-    const segments = 16
-    // Create a concave bowl curve from center to rim
+    const segments = 20
+    // Create a concave bowl curve from center (touching pitch) to raised rim
     for (let i = 0; i <= segments; i++) {
       const t = i / segments
       const x = t * baseRadius // Radius from 0 to baseRadius
-      // Bowl curve: starts low at center, curves up to rim
-      // Using a quadratic curve for smooth bowl shape
-      const y = bowlDepth * (t * t - 0.3 * t) + baseRimHeight
+      // Bowl curve: starts at y=0 (touching pitch) and curves up to rim
+      // Using a parabolic curve for smooth cereal bowl shape
+      const y = rimHeight * t * t
       points.push(new THREE.Vector2(x, y))
     }
     return points
-  }, [baseRadius, bowlDepth, baseRimHeight])
+  }, [baseRadius, rimHeight])
   const playerHeight = 0.22
 
   // Head position for facial features
@@ -90,7 +89,7 @@ const Player = forwardRef(function Player({
         </mesh>
 
         {/* Bowl rim highlight */}
-        <mesh position={[0, baseRimHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, rimHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[baseRadius * 0.92, baseRadius, 32]} />
           <meshStandardMaterial color="#1456a8" />
         </mesh>
