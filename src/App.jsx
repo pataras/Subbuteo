@@ -70,6 +70,7 @@ function AppContent() {
   const [currentMatchId, setCurrentMatchId] = useState(null)
   const [currentMatchData, setCurrentMatchData] = useState(null)
   const [isHomePlayer, setIsHomePlayer] = useState(true)
+  const [isPracticeMode, setIsPracticeMode] = useState(false)
 
   if (!currentUser) {
     return <AuthScreen />
@@ -103,7 +104,16 @@ function AppContent() {
   const handleBackToLobby = () => {
     setCurrentMatchId(null)
     setCurrentMatchData(null)
+    setIsPracticeMode(false)
     setScreen('lobby')
+  }
+
+  const handlePracticeMatch = () => {
+    setCurrentMatchId(null)
+    setCurrentMatchData(null)
+    setIsHomePlayer(true)
+    setIsPracticeMode(true)
+    setScreen('game')
   }
 
   return (
@@ -117,6 +127,7 @@ function AppContent() {
               <MatchLobby
                 onMatchCreated={handleMatchCreated}
                 onMatchAccepted={handleMatchAccepted}
+                onPracticeMatch={handlePracticeMatch}
               />
             )}
 
@@ -135,6 +146,7 @@ function AppContent() {
                 matchId={currentMatchId}
                 matchData={currentMatchData}
                 isHomePlayer={isHomePlayer}
+                isPractice={isPracticeMode}
                 onBackToLobby={handleBackToLobby}
               />
             )}
@@ -146,7 +158,7 @@ function AppContent() {
 }
 
 // Wrapper to pass multiplayer props to Game
-function GameWrapper({ matchId, matchData, isHomePlayer, onBackToLobby }) {
+function GameWrapper({ matchId, matchData, isHomePlayer, isPractice, onBackToLobby }) {
   const { startMultiplayerMatch } = useMatch()
 
   useEffect(() => {
@@ -160,6 +172,7 @@ function GameWrapper({ matchId, matchData, isHomePlayer, onBackToLobby }) {
       matchId={matchId}
       matchData={matchData}
       isHomePlayer={isHomePlayer}
+      isPractice={isPractice}
       onBackToLobby={onBackToLobby}
     />
   )
