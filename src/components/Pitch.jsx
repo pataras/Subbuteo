@@ -465,7 +465,8 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
       {/* CONCRETE TERRACES WITH STANDING FANS */}
       {/* Generate fan positions dynamically based on pitch size */}
       {(() => {
-        const fanColors = ['#e63946', '#1d3557', '#f4a261', '#2a9d8f', '#ffffff', '#264653']
+        // Fan shirt colors - random mix of claret, white, blue and green
+        const fanColors = ['#670E36', '#ffffff', '#1d3557', '#2d8a2d']
         const standWidth = pitchWidth + standDepth * 2 - 0.4
         const numFansPerRow = Math.floor(standWidth / 0.5)
 
@@ -488,7 +489,7 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
                       <group key={`fan-left-${row}-${i}`} position={[0.15 + row * 0.2, 0.17 + row * 0.2, z]}>
                         <mesh position={[0, 0.15, 0]} castShadow>
                           <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row) % 6]} />
+                          <meshStandardMaterial color={fanColors[(i + row) % fanColors.length]} />
                         </mesh>
                         <mesh position={[0, 0.32, 0]} castShadow>
                           <sphereGeometry args={[0.05, 8, 8]} />
@@ -518,7 +519,7 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
                       <group key={`fan-right-${row}-${i}`} position={[-0.15 - row * 0.2, 0.17 + row * 0.2, z]}>
                         <mesh position={[0, 0.15, 0]} castShadow>
                           <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row + 2) % 6]} />
+                          <meshStandardMaterial color={fanColors[(i + row + 2) % fanColors.length]} />
                         </mesh>
                         <mesh position={[0, 0.32, 0]} castShadow>
                           <sphereGeometry args={[0.05, 8, 8]} />
@@ -548,7 +549,7 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
                       <group key={`fan-front-${row}-${i}`} position={[x, 0.17 + row * 0.2, -0.15 - row * 0.2]}>
                         <mesh position={[0, 0.15, 0]} castShadow>
                           <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row + 3) % 6]} />
+                          <meshStandardMaterial color={fanColors[(i + row + 3) % fanColors.length]} />
                         </mesh>
                         <mesh position={[0, 0.32, 0]} castShadow>
                           <sphereGeometry args={[0.05, 8, 8]} />
