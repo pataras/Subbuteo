@@ -10,8 +10,8 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
   const concreteDark = '#888888' // Darker concrete
   const railingColor = '#444444' // Safety railings
 
-  // Fan colors - claret theme (like Aston Villa supporters)
-  const claretColors = ['#670E36', '#7B1141', '#5A0C2F', '#8B1A4A', '#4D0A28']
+  // Fan shirt colors - random mix of claret, white, blue and green
+  const shirtColors = ['#670E36', '#ffffff', '#1d3557', '#2d8a2d']
   const skinTone = '#ffdbac'
 
   // Seat dimensions - approximately player size (player height ~0.22)
@@ -94,7 +94,7 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
             const x = seatsStartX + seatIdx * seatSpacing
             const y = 0.18 + row * rowRise
             const z = standDepth / 4 - row * rowDepth
-            const fanColor = claretColors[(row + seatIdx) % claretColors.length]
+            const fanColor = shirtColors[(row + seatIdx) % shirtColors.length]
 
             return (
               <group key={`lower-fan-${row}-${seatIdx}`} position={[x, y, z]}>
@@ -185,7 +185,7 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
             const x = seatsStartX + seatIdx * seatSpacing
             const y = 0.18 + row * rowRise
             const z = -standDepth * 0.1 - row * rowDepth
-            const fanColor = claretColors[(row + seatIdx + 2) % claretColors.length]
+            const fanColor = shirtColors[(row + seatIdx + 2) % shirtColors.length]
 
             return (
               <group key={`upper-fan-${row}-${seatIdx}`} position={[x, y, z]}>
