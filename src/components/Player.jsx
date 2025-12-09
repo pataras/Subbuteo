@@ -1,6 +1,7 @@
-import { forwardRef } from 'react'
+import { forwardRef, useMemo } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import { Text } from '@react-three/drei'
+import * as THREE from 'three'
 import { useSettings } from '../contexts/SettingsContext'
 
 // Subbuteo-style player figure with kit customization support
@@ -15,8 +16,25 @@ const Player = forwardRef(function Player({
   const { mass, restitution, friction, linearDamping, angularDamping } = settings.player
 
   const baseRadius = 0.1
-  const baseThickness = 0.012 // Flat disc thickness
-  const baseHeight = baseThickness // Height where base meets the figure
+  const bowlDepth = 0.025 // Depth of the bowl curve
+  const baseRimHeight = 0.015 // Height of the rim
+  const baseHeight = baseRimHeight // Height where base meets the figure
+
+  // Create bowl profile for lathe geometry - cereal bowl shape
+  const bowlPoints = useMemo(() => {
+    const points = []
+    const segments = 16
+    // Create a concave bowl curve from center to rim
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments
+      const x = t * baseRadius // Radius from 0 to baseRadius
+      // Bowl curve: starts low at center, curves up to rim
+      // Using a quadratic curve for smooth bowl shape
+      const y = bowlDepth * (t * t - 0.3 * t) + baseRimHeight
+      points.push(new THREE.Vector2(x, y))
+    }
+    return points
+  }, [baseRadius, bowlDepth, baseRimHeight])
   const playerHeight = 0.22
 
   // Head position for facial features
@@ -65,15 +83,15 @@ const Player = forwardRef(function Player({
       <CylinderCollider args={[0.05, baseRadius]} position={[0, 0.05, 0]} />
 
       <group>
-        {/* Classic Subbuteo flat disc base */}
-        <mesh position={[0, baseThickness / 2, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[baseRadius, baseRadius, baseThickness, 32]} />
-          <meshStandardMaterial color="#1E90FF" />
+        {/* Cereal bowl shaped base using lathe geometry */}
+        <mesh position={[0, 0, 0]} castShadow receiveShadow>
+          <latheGeometry args={[bowlPoints, 32]} />
+          <meshStandardMaterial color="#1E90FF" side={THREE.DoubleSide} />
         </mesh>
 
-        {/* Base top rim - decorative ring */}
-        <mesh position={[0, baseThickness + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[baseRadius * 0.55, baseRadius * 0.7, 32]} />
+        {/* Bowl rim highlight */}
+        <mesh position={[0, baseRimHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[baseRadius * 0.92, baseRadius, 32]} />
           <meshStandardMaterial color="#1456a8" />
         </mesh>
 

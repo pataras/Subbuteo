@@ -37,7 +37,7 @@ function getPowerForHoldTime(holdTime) {
 }
 
 // Hold-to-charge controller - press and hold to build power, direction based on touch position
-function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, cameraMode }) {
+function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange }) {
   const { camera, gl, raycaster } = useThree()
   const [isHolding, setIsHolding] = useState(false)
   const [holdPosition, setHoldPosition] = useState(null) // Where the user is holding
@@ -127,8 +127,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   }, [playerRef])
 
   const handlePointerDown = useCallback((e) => {
-    // Can't flick during cooldown, while objects are moving, or in camera mode
-    if (!canFlick || isInMotion || cameraMode === 'manual') return
+    // Can't flick during cooldown or while objects are moving
+    if (!canFlick || isInMotion) return
 
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
@@ -139,7 +139,7 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       holdStartTime.current = performance.now()
       e.target.setPointerCapture(e.pointerId)
     }
-  }, [screenToWorld, isValidHoldStart, canFlick, isInMotion, cameraMode])
+  }, [screenToWorld, isValidHoldStart, canFlick, isInMotion])
 
   const handlePointerMove = useCallback((e) => {
     if (!isHolding) return
@@ -257,8 +257,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   const circleColor = isHolding ? getColorForHoldTime(holdTime) : '#4488ff'
   const circleOpacity = isHolding ? 0.9 : 0.5
 
-  // Only show launch circle when not in motion and not in camera mode
-  const showLaunchCircle = !isInMotion && canFlick && cameraMode !== 'manual'
+  // Only show launch circle when not in motion
+  const showLaunchCircle = !isInMotion && canFlick
 
   // Calculate power percentage for display
   const powerPercent = Math.round(getPowerForHoldTime(holdTime) * 100)
@@ -310,27 +310,25 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
         </mesh>
       )}
 
-      {/* Instructions overlay - hide in camera mode */}
-      {cameraMode !== 'manual' && (
-        <Html position={[0, 2, 0]} center>
-          <div style={{
-            background: 'rgba(0,0,0,0.7)',
-            color: 'white',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontFamily: 'sans-serif',
-            fontSize: '14px',
-            whiteSpace: 'nowrap',
-            userSelect: 'none'
-          }}>
-            {isHolding
-              ? holdTime >= MAX_HOLD_TIME
-                ? 'Overcharged! No power'
-                : `Power: ${powerPercent}% - Release to move!`
-              : 'Hold the ring to charge power'}
-          </div>
-        </Html>
-      )}
+      {/* Instructions overlay */}
+      <Html position={[0, 2, 0]} center>
+        <div style={{
+          background: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          fontSize: '14px',
+          whiteSpace: 'nowrap',
+          userSelect: 'none'
+        }}>
+          {isHolding
+            ? holdTime >= MAX_HOLD_TIME
+              ? 'Overcharged! No power'
+              : `Power: ${powerPercent}% - Release to move!`
+            : 'Hold the ring to charge power'}
+        </div>
+      </Html>
     </>
   )
 }
