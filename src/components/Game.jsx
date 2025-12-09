@@ -49,8 +49,9 @@ const MAX_CAMERA_SPEED = 2.5
 
 function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, cameraZoom, cameraHeight, onCameraPositionChange, isPositioning, orbitAngle }) {
   // Zoom affects camera distance - smaller zoom = closer, larger zoom = farther
-  const cameraDistance = 3.0 + (cameraZoom || 1.0) * 2.0 // Range from 3.0 to 7.0
-  const defaultHeight = 1.5 + (cameraZoom || 1.0) * 1.5 // Height scales with zoom
+  const cameraDistance = 3.0 + (cameraZoom || 1.0) * 2.0 // Range from 2.0 to 7.0 (with zoom -0.5 to 2)
+  const baseHeight = 1.5 + (cameraZoom || 1.0) * 1.5 // Base height scales with zoom
+  const effectiveHeight = isPositioning ? (cameraHeight || 2.0) : baseHeight // Use cameraHeight in positioning mode
   const targetPosition = useRef(new THREE.Vector3())
   const targetLookAt = useRef(new THREE.Vector3())
   const lastReportedPosition = useRef({ x: 0, z: 0 })
@@ -64,7 +65,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
       const pitchCenterZ = 0
       targetPosition.current.set(
         pitchCenterX + Math.sin(orbitAngle) * orbitRadius,
-        defaultHeight,
+        effectiveHeight,
         pitchCenterZ + Math.cos(orbitAngle) * orbitRadius
       )
       // Look at pitch center
@@ -111,7 +112,7 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
     // Position camera behind player, in line with ball
     targetPosition.current.set(
       playerPos.x + normX * cameraDistance,
-      defaultHeight,
+      effectiveHeight,
       playerPos.z + normZ * cameraDistance
     )
     // Look at the ball
@@ -189,7 +190,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -263,6 +264,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           ballRef={ballRef}
           isInMotion={isInMotion}
           cameraZoom={cameraZoom}
+          cameraHeight={cameraHeight}
           orbitAngle={orbitAngle}
           onCameraPositionChange={onCameraPositionChange}
           isPositioning={isPositioning}
@@ -283,9 +285,11 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   const [goalCelebration, setGoalCelebration] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
 
-  // Camera control state - fixed viewpoint with zoom only
-  const [cameraZoom, setCameraZoom] = useState(1.0) // 0.0 = closest, 2.0 = farthest
+  // Camera control state - fixed viewpoint with zoom and pan
+  const [cameraZoom, setCameraZoom] = useState(1.0) // -0.5 = closest, 2.0 = farthest
   const [orbitAngle, setOrbitAngle] = useState(isHomePlayer ? 0 : Math.PI) // Initial angle based on home/away
+  const [panDirection, setPanDirection] = useState(null) // 'left', 'right', 'up', 'down' for continuous panning
+  const [cameraHeight, setCameraHeight] = useState(2.0) // Additional camera height offset
   const lastBallZ = useRef(null) // For goal detection
 
   // Multiplayer state
@@ -466,6 +470,28 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     }
   }, [isInMotion, isMultiplayer, gameStatus, syncAfterMove])
 
+  // Continuous panning effect
+  useEffect(() => {
+    if (!panDirection) return
+
+    const panSpeed = 0.04 // Radians per frame for orbit
+    const heightSpeed = 0.05 // Units per frame for height
+
+    const interval = setInterval(() => {
+      if (panDirection === 'left') {
+        setOrbitAngle(angle => angle + panSpeed)
+      } else if (panDirection === 'right') {
+        setOrbitAngle(angle => angle - panSpeed)
+      } else if (panDirection === 'up') {
+        setCameraHeight(h => Math.min(5.0, h + heightSpeed))
+      } else if (panDirection === 'down') {
+        setCameraHeight(h => Math.max(1.0, h - heightSpeed))
+      }
+    }, 16) // ~60fps
+
+    return () => clearInterval(interval)
+  }, [panDirection])
+
   // Handle goal scored
   const handleGoal = useCallback((scoringTeam) => {
     // Get the active player as the scorer (simplification - in real game would track last touch)
@@ -544,9 +570,9 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     }
   }, [historyIndex, selectionHistory])
 
-  // Zoom controls
+  // Zoom controls - allow closer zooming with -0.5 minimum
   const zoomIn = useCallback(() => {
-    setCameraZoom(z => Math.max(0, z - 0.25))
+    setCameraZoom(z => Math.max(-0.5, z - 0.25))
   }, [])
 
   const zoomOut = useCallback(() => {
@@ -627,6 +653,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             prestonRefs={prestonRefs}
             ballRef={ballRef}
             cameraZoom={cameraZoom}
+            cameraHeight={cameraHeight}
             orbitAngle={orbitAngle}
             onGoal={handleGoal}
             lastBallZ={lastBallZ}
@@ -792,7 +819,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Zoom controls - bottom left */}
+      {/* Camera controls - bottom left */}
       {gameStatus !== 'completed' && (
         <div style={{
           position: 'absolute',
@@ -800,49 +827,159 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           left: '20px',
           zIndex: 100,
           display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
+          gap: '12px',
+          alignItems: 'flex-end'
         }}>
-          <button
-            onClick={zoomIn}
-            disabled={cameraZoom <= 0}
-            title="Zoom in"
-            style={{
-              width: '44px',
-              height: '44px',
-              background: cameraZoom <= 0 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: '8px',
-              color: cameraZoom <= 0 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
-              fontSize: '24px',
-              cursor: cameraZoom <= 0 ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            +
-          </button>
-          <button
-            onClick={zoomOut}
-            disabled={cameraZoom >= 2}
-            title="Zoom out"
-            style={{
-              width: '44px',
-              height: '44px',
-              background: cameraZoom >= 2 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: '8px',
-              color: cameraZoom >= 2 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
-              fontSize: '24px',
-              cursor: cameraZoom >= 2 ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            −
-          </button>
+          {/* Zoom controls */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <button
+              onClick={zoomIn}
+              disabled={cameraZoom <= -0.5}
+              title="Zoom in"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: cameraZoom <= -0.5 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: cameraZoom <= -0.5 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+                fontSize: '24px',
+                cursor: cameraZoom <= -0.5 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              +
+            </button>
+            <button
+              onClick={zoomOut}
+              disabled={cameraZoom >= 2}
+              title="Zoom out"
+              style={{
+                width: '44px',
+                height: '44px',
+                background: cameraZoom >= 2 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                color: cameraZoom >= 2 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+                fontSize: '24px',
+                cursor: cameraZoom >= 2 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              −
+            </button>
+          </div>
+
+          {/* Pan controls - 3x3 grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 36px)',
+            gridTemplateRows: 'repeat(3, 36px)',
+            gap: '2px'
+          }}>
+            {/* Row 1: empty, up, empty */}
+            <div />
+            <button
+              onPointerDown={() => setPanDirection('up')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan up"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: panDirection === 'up' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▲
+            </button>
+            <div />
+
+            {/* Row 2: left, empty, right */}
+            <button
+              onPointerDown={() => setPanDirection('left')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan left"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: panDirection === 'left' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ◀
+            </button>
+            <div />
+            <button
+              onPointerDown={() => setPanDirection('right')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan right"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: panDirection === 'right' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▶
+            </button>
+
+            {/* Row 3: empty, down, empty */}
+            <div />
+            <button
+              onPointerDown={() => setPanDirection('down')}
+              onPointerUp={() => setPanDirection(null)}
+              onPointerLeave={() => setPanDirection(null)}
+              title="Pan down"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: panDirection === 'down' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ▼
+            </button>
+            <div />
+          </div>
         </div>
       )}
 
