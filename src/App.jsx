@@ -7,6 +7,8 @@ import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 import MatchLobby from './components/MatchLobby'
 import WaitingRoom from './components/WaitingRoom'
+import TeamSelection from './components/TeamSelection'
+import PlayerSelection from './components/PlayerSelection'
 
 function ProfileDropdown() {
   const { currentUser, logout } = useAuth()
@@ -63,7 +65,7 @@ function ProfileDropdown() {
   )
 }
 
-// Screen states: 'lobby' | 'waiting' | 'game'
+// Screen states: 'lobby' | 'team-select' | 'player-select' | 'waiting' | 'game'
 function AppContent() {
   const { currentUser } = useAuth()
   const [screen, setScreen] = useState('lobby')
@@ -71,6 +73,8 @@ function AppContent() {
   const [currentMatchData, setCurrentMatchData] = useState(null)
   const [isHomePlayer, setIsHomePlayer] = useState(true)
   const [isPracticeMode, setIsPracticeMode] = useState(false)
+  const [selectedTeam, setSelectedTeam] = useState(null)
+  const [selectedPlayers, setSelectedPlayers] = useState([])
 
   if (!currentUser) {
     return <AuthScreen />
@@ -109,11 +113,35 @@ function AppContent() {
   }
 
   const handlePracticeMatch = () => {
+    if (!selectedTeam) return
     setCurrentMatchId(null)
     setCurrentMatchData(null)
     setIsHomePlayer(true)
     setIsPracticeMode(true)
     setScreen('game')
+  }
+
+  const handleEditTeam = () => {
+    setScreen('team-select')
+  }
+
+  const handleTeamSelected = (team) => {
+    setSelectedTeam(team)
+    setScreen('player-select')
+  }
+
+  const handlePlayersSelected = (team, players) => {
+    setSelectedTeam({ ...team, selectedPlayers: players })
+    setSelectedPlayers(players)
+    setScreen('lobby')
+  }
+
+  const handleBackToTeamSelect = () => {
+    setScreen('team-select')
+  }
+
+  const handleBackFromTeamSelect = () => {
+    setScreen('lobby')
   }
 
   return (
@@ -128,6 +156,23 @@ function AppContent() {
                 onMatchCreated={handleMatchCreated}
                 onMatchAccepted={handleMatchAccepted}
                 onPracticeMatch={handlePracticeMatch}
+                onEditTeam={handleEditTeam}
+                selectedTeam={selectedTeam}
+              />
+            )}
+
+            {screen === 'team-select' && (
+              <TeamSelection
+                onTeamSelected={handleTeamSelected}
+                onBack={handleBackFromTeamSelect}
+              />
+            )}
+
+            {screen === 'player-select' && (
+              <PlayerSelection
+                team={selectedTeam}
+                onPlayersSelected={handlePlayersSelected}
+                onBack={handleBackToTeamSelect}
               />
             )}
 
@@ -147,6 +192,8 @@ function AppContent() {
                 matchData={currentMatchData}
                 isHomePlayer={isHomePlayer}
                 isPractice={isPracticeMode}
+                selectedTeam={selectedTeam}
+                selectedPlayers={selectedPlayers}
                 onBackToLobby={handleBackToLobby}
               />
             )}
@@ -158,7 +205,7 @@ function AppContent() {
 }
 
 // Wrapper to pass multiplayer props to Game
-function GameWrapper({ matchId, matchData, isHomePlayer, isPractice, onBackToLobby }) {
+function GameWrapper({ matchId, matchData, isHomePlayer, isPractice, selectedTeam, selectedPlayers, onBackToLobby }) {
   const { startMultiplayerMatch } = useMatch()
 
   useEffect(() => {
@@ -173,6 +220,8 @@ function GameWrapper({ matchId, matchData, isHomePlayer, isPractice, onBackToLob
       matchData={matchData}
       isHomePlayer={isHomePlayer}
       isPractice={isPractice}
+      selectedTeam={selectedTeam}
+      selectedPlayers={selectedPlayers}
       onBackToLobby={onBackToLobby}
     />
   )

@@ -4,7 +4,7 @@ import MatchService from '../services/MatchService'
 
 const DEFAULT_INVITE_EMAIL = 'Oli@taras.co.uk'
 
-function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onBack }) {
+function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTeam, onBack, selectedTeam }) {
   const { currentUser } = useAuth()
   const [inviteEmail, setInviteEmail] = useState(DEFAULT_INVITE_EMAIL)
   const [isCreating, setIsCreating] = useState(false)
@@ -101,15 +101,51 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onBack }
       <div style={panelStyle}>
         <h1 style={titleStyle}>Subbuteo</h1>
 
+        {/* Team selection section */}
+        <div style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>Your Team</h2>
+          {selectedTeam ? (
+            <div style={selectedTeamStyle}>
+              <div
+                style={{
+                  ...teamBadgeStyle,
+                  backgroundColor: selectedTeam.kit.primary,
+                  borderColor: selectedTeam.kit.secondary,
+                }}
+              />
+              <div style={teamInfoContainerStyle}>
+                <span style={teamNameDisplayStyle}>{selectedTeam.name}</span>
+                <span style={squadInfoStyle}>
+                  {selectedTeam.selectedPlayers?.length || 0} players selected
+                </span>
+              </div>
+              <button onClick={onEditTeam} style={editTeamButtonStyle}>
+                Edit
+              </button>
+            </div>
+          ) : (
+            <button onClick={onEditTeam} style={selectTeamButtonStyle}>
+              Select Team
+            </button>
+          )}
+        </div>
+
         {/* Practice match section */}
         <div style={sectionStyle}>
           <button
             onClick={onPracticeMatch}
-            style={practiceButtonStyle}
+            disabled={!selectedTeam}
+            style={{
+              ...practiceButtonStyle,
+              opacity: selectedTeam ? 1 : 0.5,
+              cursor: selectedTeam ? 'pointer' : 'not-allowed',
+            }}
           >
             Practice Match
           </button>
-          <p style={practiceHintStyle}>Solo practice with one team, no time limit</p>
+          <p style={practiceHintStyle}>
+            {selectedTeam ? 'Solo practice with your team, no time limit' : 'Select a team first'}
+          </p>
         </div>
 
         {/* Divider */}
@@ -412,6 +448,67 @@ const backButtonStyle = {
   borderRadius: '8px',
   cursor: 'pointer',
   marginTop: '16px',
+  fontFamily: 'sans-serif',
+}
+
+const selectedTeamStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  backgroundColor: '#1a1a1a',
+  borderRadius: '8px',
+  padding: '12px',
+}
+
+const teamBadgeStyle = {
+  width: '48px',
+  height: '48px',
+  borderRadius: '50%',
+  border: '3px solid',
+  flexShrink: 0,
+}
+
+const teamInfoContainerStyle = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+}
+
+const teamNameDisplayStyle = {
+  color: 'white',
+  fontSize: '16px',
+  fontWeight: 'bold',
+  fontFamily: 'sans-serif',
+}
+
+const squadInfoStyle = {
+  color: '#888',
+  fontSize: '12px',
+  fontFamily: 'sans-serif',
+}
+
+const editTeamButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '14px',
+  color: 'white',
+  backgroundColor: '#2196F3',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'sans-serif',
+}
+
+const selectTeamButtonStyle = {
+  width: '100%',
+  padding: '14px',
+  fontSize: '16px',
+  fontWeight: 'bold',
+  color: 'white',
+  backgroundColor: '#FF9800',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
   fontFamily: 'sans-serif',
 }
 

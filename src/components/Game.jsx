@@ -10,18 +10,38 @@ import Pitch from './Pitch'
 import FlickController from './FlickController'
 import PlayerDragController from './PlayerDragController'
 import SettingsPanel from './SettingsPanel'
-import { useGame, TEAMS } from '../contexts/GameContext'
+import { useGame, TEAMS as LEGACY_TEAMS } from '../contexts/GameContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useMatch } from '../contexts/MatchContext'
 import GameStateService from '../services/GameStateService'
+import { TEAMS } from '../data/teams'
 
 // Stand dimensions (fixed)
 const STAND_DEPTH = 1.2
 const BOARDING_THICKNESS = 0.08
 
-// Use teams from GameContext
-const ASTON_VILLA_PLAYERS = TEAMS.ASTON_VILLA.players
-const PRESTON_PLAYERS = TEAMS.PRESTON.players
+// Default starting positions for 6 players (2-2-2 formation)
+const DEFAULT_HOME_POSITIONS = [
+  [-1.2, 0.05, 2.5],   // Defender left
+  [1.2, 0.05, 2.5],    // Defender right
+  [-1.0, 0.05, 1.2],   // Midfielder left
+  [1.0, 0.05, 1.2],    // Midfielder right
+  [-0.5, 0.05, 0.3],   // Striker left
+  [0.5, 0.05, 0.3],    // Striker right
+]
+
+const DEFAULT_AWAY_POSITIONS = [
+  [-1.2, 0.05, -2.5],  // Defender left
+  [1.2, 0.05, -2.5],   // Defender right
+  [-1.0, 0.05, -1.2],  // Midfielder left
+  [1.0, 0.05, -1.2],   // Midfielder right
+  [-0.5, 0.05, -0.3],  // Striker left
+  [0.5, 0.05, -0.3],   // Striker right
+]
+
+// Legacy fallback teams for compatibility
+const LEGACY_ASTON_VILLA = LEGACY_TEAMS.ASTON_VILLA
+const LEGACY_PRESTON = LEGACY_TEAMS.PRESTON
 
 // Camera controller that follows player and looks at ball, with manual orbit mode
 // Maximum camera pan speed (units per second) - creates smooth catch-up effect
@@ -183,7 +203,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraMode, orbitAngle, cameraHeight, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -206,24 +226,26 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
       {/* Physics world */}
       <Physics gravity={[0, -9.81, 0]} debug={false}>
         <Pitch standVisibility={standVisibility} />
-        {/* Aston Villa players (claret shirts) */}
-        {ASTON_VILLA_PLAYERS.map((player, index) => (
+        {/* Home team players */}
+        {homePlayers.map((player, index) => (
           <Player
-            key={`villa-${index}`}
+            key={`home-${index}`}
             ref={playerRefs.current[index]}
-            position={player.position}
-            color={TEAMS.ASTON_VILLA.color}
+            position={player.position || DEFAULT_HOME_POSITIONS[index]}
+            color={homeTeam?.kit?.primary || LEGACY_ASTON_VILLA.color}
+            kit={homeTeam?.kit}
             number={player.number}
             name={player.name}
           />
         ))}
-        {/* Preston North End players (white shirts) */}
-        {PRESTON_PLAYERS.map((player, index) => (
+        {/* Away team players */}
+        {awayPlayers.map((player, index) => (
           <Player
-            key={`preston-${index}`}
+            key={`away-${index}`}
             ref={prestonRefs.current[index]}
-            position={player.position}
-            color={TEAMS.PRESTON.color}
+            position={player.position || DEFAULT_AWAY_POSITIONS[index]}
+            color={awayTeam?.kit?.primary || LEGACY_PRESTON.color}
+            kit={awayTeam?.kit}
             number={player.number}
             name={player.name}
           />
@@ -267,10 +289,10 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
 }
 
 // Main game component with canvas setup
-function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onBackToLobby }) {
+function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, selectedTeam, selectedPlayers, onBackToLobby }) {
   const [isFlicking, setIsFlicking] = useState(false)
   const [isInMotion, setIsInMotion] = useState(false)
-  const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with Yorke (striker)
+  const [activePlayerIndex, setActivePlayerIndex] = useState(5) // Start with last player (striker)
   const [selectionHistory, setSelectionHistory] = useState([5]) // Track selection order
   const [historyIndex, setHistoryIndex] = useState(0) // Current position in history
   const [showSaveMenu, setShowSaveMenu] = useState(false)
@@ -304,9 +326,25 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
     front: false // Front stand is always hidden (camera side)
   })
 
+  // Determine the home and away teams based on selection
+  // Home player uses selected team, away uses Preston as default opponent
+  const homeTeam = selectedTeam || TEAMS.ASTON_VILLA
+  const awayTeam = TEAMS.PRESTON  // Default opponent for now
+
+  // Get the players with positions
+  const homePlayers = (selectedTeam?.selectedPlayers || homeTeam.players?.slice(0, 6) || LEGACY_ASTON_VILLA.players).map((p, i) => ({
+    ...p,
+    position: DEFAULT_HOME_POSITIONS[i]
+  }))
+
+  const awayPlayers = (awayTeam.players?.slice(0, 6) || LEGACY_PRESTON.players).map((p, i) => ({
+    ...p,
+    position: DEFAULT_AWAY_POSITIONS[i]
+  }))
+
   // Create refs for all players and ball
-  const playerRefs = useRef(ASTON_VILLA_PLAYERS.map(() => ({ current: null })))
-  const prestonRefs = useRef(PRESTON_PLAYERS.map(() => ({ current: null })))
+  const playerRefs = useRef(homePlayers.map(() => ({ current: null })))
+  const prestonRefs = useRef(awayPlayers.map(() => ({ current: null })))
   const ballRef = useRef()
 
   // Game state from context
@@ -331,7 +369,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
   const myTeamRefs = isHomePlayer ? playerRefs : prestonRefs
   const opponentTeamRefs = isHomePlayer ? prestonRefs : playerRefs
   const myTeam = isHomePlayer ? 'home' : 'away'
-  const myTeamPlayers = isHomePlayer ? ASTON_VILLA_PLAYERS : PRESTON_PLAYERS
+  const myTeamPlayers = isHomePlayer ? homePlayers : awayPlayers
+  const myTeamData = isHomePlayer ? homeTeam : awayTeam
 
   // Set practice mode in context
   useEffect(() => {
@@ -404,7 +443,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
     if (!isMultiplayer || !matchId) return
 
     // Extract current positions
-    const { homePlayers, awayPlayers, ballPosition } = GameStateService.extractCurrentPositions(
+    const { homePlayers: homePositions, awayPlayers: awayPositions, ballPosition } = GameStateService.extractCurrentPositions(
       playerRefs,
       ballRef,
       prestonRefs
@@ -412,13 +451,13 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
 
     const gameState = {
       players: {
-        home: ASTON_VILLA_PLAYERS.map((p, i) => ({
+        home: homePlayers.map((p, i) => ({
           ...p,
-          position: homePlayers[i]?.position || { x: p.position[0], y: p.position[1], z: p.position[2] }
+          position: homePositions[i]?.position || { x: DEFAULT_HOME_POSITIONS[i][0], y: DEFAULT_HOME_POSITIONS[i][1], z: DEFAULT_HOME_POSITIONS[i][2] }
         })),
-        away: PRESTON_PLAYERS.map((p, i) => ({
+        away: awayPlayers.map((p, i) => ({
           ...p,
-          position: awayPlayers[i]?.position || { x: p.position[0], y: p.position[1], z: p.position[2] }
+          position: awayPositions[i]?.position || { x: DEFAULT_AWAY_POSITIONS[i][0], y: DEFAULT_AWAY_POSITIONS[i][1], z: DEFAULT_AWAY_POSITIONS[i][2] }
         }))
       },
       ball: { position: ballPosition },
@@ -427,7 +466,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
     }
 
     syncGameState(gameState)
-  }, [isMultiplayer, matchId, score, goals, syncGameState])
+  }, [isMultiplayer, matchId, score, goals, syncGameState, homePlayers, awayPlayers])
 
   // Watch for motion stop to trigger sync
   useEffect(() => {
@@ -450,7 +489,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
   // Handle goal scored
   const handleGoal = useCallback((scoringTeam) => {
     // Get the active player as the scorer (simplification - in real game would track last touch)
-    const activePlayer = ASTON_VILLA_PLAYERS[activePlayerIndex]
+    const activePlayer = homePlayers[activePlayerIndex]
     const scorerName = activePlayer?.name || 'Unknown'
     const scorerNumber = activePlayer?.number || 0
 
@@ -460,12 +499,12 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
     setGoalCelebration({
       team: scoringTeam,
       scorer: scorerName,
-      teamName: scoringTeam === 'home' ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name
+      teamName: scoringTeam === 'home' ? homeTeam.name : awayTeam.name
     })
 
     // Hide celebration after 3 seconds
     setTimeout(() => setGoalCelebration(null), 3000)
-  }, [activePlayerIndex, recordGoal])
+  }, [activePlayerIndex, recordGoal, homePlayers, homeTeam, awayTeam])
 
   // Handle save game
   const handleSaveGame = useCallback(async () => {
@@ -663,6 +702,10 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
             pitchSettings={settings.pitch}
             isHomePlayer={isHomePlayer}
             myTeamRefs={myTeamRefs}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            homePlayers={homePlayers}
+            awayPlayers={awayPlayers}
           />
         </Suspense>
 
@@ -684,7 +727,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          border: `2px solid ${isHomePlayer ? TEAMS.ASTON_VILLA.color : TEAMS.PRESTON.color}`,
+          border: `2px solid ${myTeamData?.kit?.primary || '#4CAF50'}`,
           zIndex: 100,
           pointerEvents: 'none'
         }}>
@@ -692,12 +735,12 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
           <div style={{
             width: '12px',
             height: '12px',
-            background: isHomePlayer ? TEAMS.ASTON_VILLA.color : TEAMS.PRESTON.color,
+            background: myTeamData?.kit?.primary || '#4CAF50',
             borderRadius: '2px',
             border: '1px solid white'
           }} />
           <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
-            {isHomePlayer ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name}
+            {myTeamData?.name || 'Your Team'}
           </span>
         </div>
       )}
@@ -749,12 +792,12 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
           <div style={{
             width: '12px',
             height: '12px',
-            background: TEAMS.ASTON_VILLA.color,
+            background: homeTeam?.kit?.primary || '#670E36',
             borderRadius: '2px',
             border: '1px solid white'
           }} />
           <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
-            {TEAMS.ASTON_VILLA.shortName}
+            {homeTeam?.shortName || 'HOME'}
           </span>
         </div>
         <div style={{
@@ -768,12 +811,12 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
-            {TEAMS.PRESTON.shortName}
+            {awayTeam?.shortName || 'AWAY'}
           </span>
           <div style={{
             width: '12px',
             height: '12px',
-            background: TEAMS.PRESTON.color,
+            background: awayTeam?.kit?.primary || '#FFFFFF',
             borderRadius: '2px',
             border: '1px solid #333'
           }} />
@@ -833,13 +876,13 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
         }}>
           <div style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '20px' }}>Full Time!</div>
           <div style={{ fontSize: '28px', marginBottom: '15px' }}>
-            <span style={{ color: TEAMS.ASTON_VILLA.color }}>{TEAMS.ASTON_VILLA.name}</span>
+            <span style={{ color: homeTeam?.kit?.primary || '#670E36' }}>{homeTeam?.name || 'Home'}</span>
             <span style={{ margin: '0 15px' }}>{score.home} - {score.away}</span>
-            <span style={{ color: '#ccc' }}>{TEAMS.PRESTON.name}</span>
+            <span style={{ color: '#ccc' }}>{awayTeam?.name || 'Away'}</span>
           </div>
           <div style={{ fontSize: '20px', color: '#aaa', marginBottom: '25px' }}>
-            {score.home > score.away ? `${TEAMS.ASTON_VILLA.name} wins!` :
-             score.away > score.home ? `${TEAMS.PRESTON.name} wins!` :
+            {score.home > score.away ? `${homeTeam?.name || 'Home'} wins!` :
+             score.away > score.home ? `${awayTeam?.name || 'Away'} wins!` :
              'Draw!'}
           </div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -1153,7 +1196,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, onB
               </span>
               {' '}
               <span style={{ color: '#666' }}>
-                ({goal.team === 'home' ? TEAMS.ASTON_VILLA.name : TEAMS.PRESTON.name})
+                ({goal.team === 'home' ? homeTeam?.name : awayTeam?.name})
               </span>
             </div>
           ))}
