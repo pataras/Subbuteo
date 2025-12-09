@@ -634,7 +634,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e', touchAction: 'none' }}>
       <Canvas shadows>
         {/* Camera positioned behind the player looking at the ball */}
         <PerspectiveCamera
