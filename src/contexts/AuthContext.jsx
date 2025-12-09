@@ -62,7 +62,9 @@ export function AuthProvider({ children }) {
   }
 
   function isAdmin() {
-    return hasRole('admin')
+    // TEMPORARY: Allow all users to be admin
+    // TODO: Remove this line and restore: return hasRole('admin')
+    return true
   }
 
   function isGroupOrganiser() {
