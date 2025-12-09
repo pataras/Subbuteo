@@ -1,5 +1,6 @@
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import { useSettings } from '../contexts/SettingsContext'
+import TwoTierBackStand from './TwoTierBackStand'
 
 // Green pitch/playing surface with stadium stands
 function Pitch({ standVisibility = { left: true, right: true, back: true, front: false } }) {
@@ -403,26 +404,14 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
         </group>
       )}
 
-      {/* Back Stand (behind far goal, north end) - conditionally visible based on camera position */}
+      {/* Back Stand (behind far goal, north end) - Two-tier stand with player-sized seats */}
       {standVisibility.back && (
-        <group position={[0, 0, -halfLength - standDepth / 2 - 0.2]}>
-          {/* Main stand structure */}
-          <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[pitchWidth + standDepth * 2 + boardingThickness * 2, standHeight, standDepth]} />
-            <meshStandardMaterial color={standColor} />
-          </mesh>
-          {/* Tiered seating effect - rows of seats */}
-          {[0, 1, 2, 3, 4].map((row) => (
-            <mesh
-              key={`back-seats-${row}`}
-              position={[0, 0.3 + row * 0.25, standDepth / 4 - row * 0.15]}
-              castShadow
-            >
-              <boxGeometry args={[pitchWidth + standDepth * 2 - 0.2, 0.15, 0.08]} />
-              <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
-            </mesh>
-          ))}
-        </group>
+        <TwoTierBackStand
+          pitchWidth={pitchWidth}
+          halfLength={halfLength}
+          standDepth={1.8}
+          boardingThickness={boardingThickness}
+        />
       )}
 
       {/* Front Stand (behind near goal, south end) - conditionally visible based on camera position */}
@@ -482,36 +471,6 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
 
         return (
           <>
-            {/* Back stand terrace */}
-            {standVisibility.back && (
-              <group position={[0, 0, -halfLength - standDepth / 2 - 0.2]}>
-                {[0, 1, 2, 3].map((tier) => (
-                  <mesh key={`back-terrace-${tier}`} position={[0, 0.1 + tier * 0.2, 0.15 + tier * 0.2]} castShadow receiveShadow>
-                    <boxGeometry args={[standWidth, 0.15, 0.25]} />
-                    <meshStandardMaterial color={tier % 2 === 0 ? concreteColor : concreteDark} />
-                  </mesh>
-                ))}
-                {/* Standing fans */}
-                {[0, 1, 2, 3].map((row) =>
-                  Array.from({ length: numFansPerRow }).map((_, i) => {
-                    const x = -standWidth / 2 + 0.25 + i * (standWidth / numFansPerRow) + (row % 2 === 0 ? 0 : 0.15)
-                    return (
-                      <group key={`fan-back-${row}-${i}`} position={[x, 0.17 + row * 0.2, 0.15 + row * 0.2]}>
-                        <mesh position={[0, 0.15, 0]} castShadow>
-                          <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row) % 6]} />
-                        </mesh>
-                        <mesh position={[0, 0.32, 0]} castShadow>
-                          <sphereGeometry args={[0.05, 8, 8]} />
-                          <meshStandardMaterial color="#ffdbac" />
-                        </mesh>
-                      </group>
-                    )
-                  })
-                )}
-              </group>
-            )}
-
             {/* Left side terrace */}
             {standVisibility.left && (
               <group position={[-halfWidth - standDepth / 2 - boardingThickness, 0, 0]}>
