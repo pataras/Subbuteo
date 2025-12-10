@@ -14,6 +14,14 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
   const shirtColors = ['#670E36', '#ffffff', '#1d3557', '#2d8a2d']
   const skinTone = '#ffdbac'
 
+  // Pseudo-random function for consistent but random-looking shirt distribution
+  const getRandomShirtColor = (row, seatIdx, tierOffset = 0) => {
+    const seed = (row + tierOffset) * 12.9898 + seatIdx * 78.233
+    const hash = Math.sin(seed) * 43758.5453
+    const index = Math.floor((hash - Math.floor(hash)) * shirtColors.length)
+    return shirtColors[index]
+  }
+
   // Seat dimensions - approximately player size (player height ~0.22)
   const seatWidth = 0.18 // Width of each seat
   const seatHeight = 0.20 // Height of seat back
@@ -26,8 +34,8 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
   const rowRise = 0.18 // Height increase per row
   const rowDepth = 0.20 // Depth per row (stepping back)
 
-  // Overall dimensions
-  const standWidth = pitchWidth + standDepth * 2 + boardingThickness * 2
+  // Overall dimensions - stand width matches pitch width
+  const standWidth = pitchWidth
   const lowerTierHeight = lowerTierRows * rowRise + 0.3
   const concourseHeight = 0.4 // Height of walkway between tiers
   const upperTierHeight = upperTierRows * rowRise + 0.3
@@ -94,7 +102,7 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
             const x = seatsStartX + seatIdx * seatSpacing
             const y = 0.18 + row * rowRise
             const z = standDepth / 4 - row * rowDepth
-            const fanColor = shirtColors[(row + seatIdx) % shirtColors.length]
+            const fanColor = getRandomShirtColor(row, seatIdx, 0)
 
             return (
               <group key={`lower-fan-${row}-${seatIdx}`} position={[x, y, z]}>
@@ -185,7 +193,7 @@ function TwoTierBackStand({ pitchWidth, halfLength, standDepth = 1.8, boardingTh
             const x = seatsStartX + seatIdx * seatSpacing
             const y = 0.18 + row * rowRise
             const z = -standDepth * 0.1 - row * rowDepth
-            const fanColor = shirtColors[(row + seatIdx + 2) % shirtColors.length]
+            const fanColor = getRandomShirtColor(row, seatIdx, 10)
 
             return (
               <group key={`upper-fan-${row}-${seatIdx}`} position={[x, y, z]}>
