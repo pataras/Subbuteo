@@ -79,7 +79,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
         {Array.from({ length: lowerTierRows }).map((_, row) =>
           Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
             const z = seatsStartZ + seatIdx * seatSpacing
-            const y = 0.18 + row * rowRise
+            const y = 0.10 + row * rowRise
             const x = dir * (standDepth / 4 - row * rowDepth)
             const seatColorChoice = (row + seatIdx) % 2 === 0 ? seatColor1 : seatColor2
 
@@ -104,7 +104,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
         {Array.from({ length: lowerTierRows }).map((_, row) =>
           Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
             const z = seatsStartZ + seatIdx * seatSpacing
-            const y = 0.18 + row * rowRise
+            const y = 0.10 + row * rowRise
             const x = dir * (standDepth / 4 - row * rowDepth)
             const fanColor = getRandomShirtColor(row, seatIdx, side === 'left' ? 20 : 30)
 
@@ -170,7 +170,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
         {Array.from({ length: upperTierRows }).map((_, row) =>
           Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
             const z = seatsStartZ + seatIdx * seatSpacing
-            const y = 0.18 + row * rowRise
+            const y = 0.10 + row * rowRise
             const x = dir * (-standDepth * 0.1 - row * rowDepth)
             const seatColorChoice = (row + seatIdx) % 2 === 0 ? seatColor1 : seatColor2
 
@@ -195,7 +195,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
         {Array.from({ length: upperTierRows }).map((_, row) =>
           Array.from({ length: numSeatsPerRow }).map((_, seatIdx) => {
             const z = seatsStartZ + seatIdx * seatSpacing
-            const y = 0.18 + row * rowRise
+            const y = 0.10 + row * rowRise
             const x = dir * (-standDepth * 0.1 - row * rowDepth)
             const fanColor = getRandomShirtColor(row, seatIdx, side === 'left' ? 40 : 50)
 
