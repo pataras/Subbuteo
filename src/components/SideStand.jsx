@@ -91,7 +91,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
                   <meshStandardMaterial color={seatColorChoice} />
                 </mesh>
                 {/* Seat base */}
-                <mesh position={[dir * seatDepth * 0.25, -seatHeight * 0.35, 0]} castShadow rotation={[0, dir * Math.PI / 2, 0]}>
+                <mesh position={[-dir * seatDepth * 0.25, -seatHeight * 0.35, 0]} castShadow rotation={[0, dir * Math.PI / 2, 0]}>
                   <boxGeometry args={[seatWidth * 0.85, seatHeight * 0.3, seatDepth * 0.5]} />
                   <meshStandardMaterial color={seatColorChoice} />
                 </mesh>
@@ -111,12 +111,12 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
             return (
               <group key={`lower-fan-${row}-${seatIdx}`} position={[x, y, z]}>
                 {/* Fan body */}
-                <mesh position={[dir * seatDepth * 0.25, 0.12, 0]} castShadow>
+                <mesh position={[-dir * seatDepth * 0.25, 0.12, 0]} castShadow>
                   <cylinderGeometry args={[0.05, 0.06, 0.18, 8]} />
                   <meshStandardMaterial color={fanColor} />
                 </mesh>
                 {/* Fan head */}
-                <mesh position={[dir * seatDepth * 0.25, 0.25, 0]} castShadow>
+                <mesh position={[-dir * seatDepth * 0.25, 0.25, 0]} castShadow>
                   <sphereGeometry args={[0.04, 8, 8]} />
                   <meshStandardMaterial color={skinTone} />
                 </mesh>
@@ -182,7 +182,7 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
                   <meshStandardMaterial color={seatColorChoice} />
                 </mesh>
                 {/* Seat base */}
-                <mesh position={[dir * seatDepth * 0.25, -seatHeight * 0.35, 0]} castShadow rotation={[0, dir * Math.PI / 2, 0]}>
+                <mesh position={[-dir * seatDepth * 0.25, -seatHeight * 0.35, 0]} castShadow rotation={[0, dir * Math.PI / 2, 0]}>
                   <boxGeometry args={[seatWidth * 0.85, seatHeight * 0.3, seatDepth * 0.5]} />
                   <meshStandardMaterial color={seatColorChoice} />
                 </mesh>
@@ -202,12 +202,12 @@ function SideStand({ pitchLength, halfWidth, standDepth = 1.8, boardingThickness
             return (
               <group key={`upper-fan-${row}-${seatIdx}`} position={[x, y, z]}>
                 {/* Fan body */}
-                <mesh position={[dir * seatDepth * 0.25, 0.12, 0]} castShadow>
+                <mesh position={[-dir * seatDepth * 0.25, 0.12, 0]} castShadow>
                   <cylinderGeometry args={[0.05, 0.06, 0.18, 8]} />
                   <meshStandardMaterial color={fanColor} />
                 </mesh>
                 {/* Fan head */}
-                <mesh position={[dir * seatDepth * 0.25, 0.25, 0]} castShadow>
+                <mesh position={[-dir * seatDepth * 0.25, 0.25, 0]} castShadow>
                   <sphereGeometry args={[0.04, 8, 8]} />
                   <meshStandardMaterial color={skinTone} />
                 </mesh>
