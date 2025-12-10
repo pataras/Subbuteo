@@ -1,6 +1,8 @@
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import { useSettings } from '../contexts/SettingsContext'
 import TwoTierBackStand from './TwoTierBackStand'
+import SideStand from './SideStand'
+import FrontStand from './FrontStand'
 
 // Green pitch/playing surface with stadium stands
 function Pitch({ standVisibility = { left: true, right: true, back: true, front: false } }) {
@@ -26,10 +28,7 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
   // Stadium stand dimensions
   const standHeight = 1.5
   const standDepth = 1.2
-  const standColor = '#666666' // Grey for stands
-  const seatColor = '#888888' // Grey seats
-  const concreteColor = '#a8a8a8' // Concrete grey for terraces
-  const concreteDark = '#909090' // Darker concrete for steps
+  const standColor = '#666666' // Grey for corner pieces
 
   // Sponsor colors for variety (for side boards only)
   const sponsorColors = [
@@ -360,48 +359,26 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
 
       {/* STADIUM STANDS - Four sides */}
 
-      {/* Left Stand (west side) - conditionally visible based on camera position */}
+      {/* Left Stand (west side) - Two-tier stand with player-sized seats */}
       {standVisibility.left && (
-        <group position={[-halfWidth - standDepth / 2 - boardingThickness, 0, 0]}>
-          {/* Main stand structure */}
-          <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[standDepth, standHeight, pitchLength]} />
-            <meshStandardMaterial color={standColor} />
-          </mesh>
-          {/* Tiered seating effect - rows of seats */}
-          {[0, 1, 2, 3, 4].map((row) => (
-            <mesh
-              key={`left-seats-${row}`}
-              position={[standDepth / 4 - row * 0.15, 0.3 + row * 0.25, 0]}
-              castShadow
-            >
-              <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
-              <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
-            </mesh>
-          ))}
-        </group>
+        <SideStand
+          pitchLength={pitchLength}
+          halfWidth={halfWidth}
+          standDepth={1.8}
+          boardingThickness={boardingThickness}
+          side="left"
+        />
       )}
 
-      {/* Right Stand (east side) - conditionally visible based on camera position */}
+      {/* Right Stand (east side) - Two-tier stand with player-sized seats */}
       {standVisibility.right && (
-        <group position={[halfWidth + standDepth / 2 + boardingThickness, 0, 0]}>
-          {/* Main stand structure */}
-          <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[standDepth, standHeight, pitchLength]} />
-            <meshStandardMaterial color={standColor} />
-          </mesh>
-          {/* Tiered seating effect - rows of seats */}
-          {[0, 1, 2, 3, 4].map((row) => (
-            <mesh
-              key={`right-seats-${row}`}
-              position={[-standDepth / 4 + row * 0.15, 0.3 + row * 0.25, 0]}
-              castShadow
-            >
-              <boxGeometry args={[0.08, 0.15, pitchLength - 0.2]} />
-              <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
-            </mesh>
-          ))}
-        </group>
+        <SideStand
+          pitchLength={pitchLength}
+          halfWidth={halfWidth}
+          standDepth={1.8}
+          boardingThickness={boardingThickness}
+          side="right"
+        />
       )}
 
       {/* Back Stand (behind far goal, north end) - Two-tier stand with player-sized seats */}
@@ -414,26 +391,14 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
         />
       )}
 
-      {/* Front Stand (behind near goal, south end) - conditionally visible based on camera position */}
+      {/* Front Stand (behind near goal, south end) - Two-tier stand with player-sized seats */}
       {standVisibility.front && (
-        <group position={[0, 0, halfLength + standDepth / 2 + 0.2]}>
-          {/* Main stand structure */}
-          <mesh position={[0, standHeight / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[pitchWidth + standDepth * 2 + boardingThickness * 2, standHeight, standDepth]} />
-            <meshStandardMaterial color={standColor} />
-          </mesh>
-          {/* Tiered seating effect - rows of seats */}
-          {[0, 1, 2, 3, 4].map((row) => (
-            <mesh
-              key={`front-seats-${row}`}
-              position={[0, 0.3 + row * 0.25, -standDepth / 4 + row * 0.15]}
-              castShadow
-            >
-              <boxGeometry args={[pitchWidth + standDepth * 2 - 0.2, 0.15, 0.08]} />
-              <meshStandardMaterial color={row % 2 === 0 ? seatColor : '#555555'} />
-            </mesh>
-          ))}
-        </group>
+        <FrontStand
+          pitchWidth={pitchWidth}
+          halfLength={halfLength}
+          standDepth={1.8}
+          boardingThickness={boardingThickness}
+        />
       )}
 
       {/* Corner stand pieces to fill gaps */}
@@ -462,108 +427,6 @@ function Pitch({ standVisibility = { left: true, right: true, back: true, front:
         </mesh>
       )}
 
-      {/* CONCRETE TERRACES WITH STANDING FANS */}
-      {/* Generate fan positions dynamically based on pitch size */}
-      {(() => {
-        // Fan shirt colors - random mix of claret, white, blue and green
-        const fanColors = ['#670E36', '#ffffff', '#1d3557', '#2d8a2d']
-        const standWidth = pitchWidth + standDepth * 2 - 0.4
-        const numFansPerRow = Math.floor(standWidth / 0.5)
-
-        return (
-          <>
-            {/* Left side terrace */}
-            {standVisibility.left && (
-              <group position={[-halfWidth - standDepth / 2 - boardingThickness, 0, 0]}>
-                {[0, 1, 2].map((tier) => (
-                  <mesh key={`left-terrace-${tier}`} position={[0.15 + tier * 0.2, 0.1 + tier * 0.2, 0]} castShadow receiveShadow>
-                    <boxGeometry args={[0.25, 0.15, pitchLength - 0.4]} />
-                    <meshStandardMaterial color={tier % 2 === 0 ? concreteColor : concreteDark} />
-                  </mesh>
-                ))}
-                {/* Standing fans */}
-                {[0, 1, 2].map((row) =>
-                  Array.from({ length: Math.floor((pitchLength - 0.4) / 0.7) }).map((_, i) => {
-                    const z = -pitchLength / 2 + 0.5 + i * 0.7 + (row % 2 === 0 ? 0 : 0.35)
-                    return (
-                      <group key={`fan-left-${row}-${i}`} position={[0.15 + row * 0.2, 0.17 + row * 0.2, z]}>
-                        <mesh position={[0, 0.15, 0]} castShadow>
-                          <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row) % fanColors.length]} />
-                        </mesh>
-                        <mesh position={[0, 0.32, 0]} castShadow>
-                          <sphereGeometry args={[0.05, 8, 8]} />
-                          <meshStandardMaterial color="#ffdbac" />
-                        </mesh>
-                      </group>
-                    )
-                  })
-                )}
-              </group>
-            )}
-
-            {/* Right side terrace */}
-            {standVisibility.right && (
-              <group position={[halfWidth + standDepth / 2 + boardingThickness, 0, 0]}>
-                {[0, 1, 2].map((tier) => (
-                  <mesh key={`right-terrace-${tier}`} position={[-0.15 - tier * 0.2, 0.1 + tier * 0.2, 0]} castShadow receiveShadow>
-                    <boxGeometry args={[0.25, 0.15, pitchLength - 0.4]} />
-                    <meshStandardMaterial color={tier % 2 === 0 ? concreteColor : concreteDark} />
-                  </mesh>
-                ))}
-                {/* Standing fans */}
-                {[0, 1, 2].map((row) =>
-                  Array.from({ length: Math.floor((pitchLength - 0.4) / 0.7) }).map((_, i) => {
-                    const z = -pitchLength / 2 + 0.5 + i * 0.7 + (row % 2 === 0 ? 0 : 0.35)
-                    return (
-                      <group key={`fan-right-${row}-${i}`} position={[-0.15 - row * 0.2, 0.17 + row * 0.2, z]}>
-                        <mesh position={[0, 0.15, 0]} castShadow>
-                          <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row + 2) % fanColors.length]} />
-                        </mesh>
-                        <mesh position={[0, 0.32, 0]} castShadow>
-                          <sphereGeometry args={[0.05, 8, 8]} />
-                          <meshStandardMaterial color="#ffdbac" />
-                        </mesh>
-                      </group>
-                    )
-                  })
-                )}
-              </group>
-            )}
-
-            {/* Front stand terrace */}
-            {standVisibility.front && (
-              <group position={[0, 0, halfLength + standDepth / 2 + 0.2]}>
-                {[0, 1, 2, 3].map((tier) => (
-                  <mesh key={`front-terrace-${tier}`} position={[0, 0.1 + tier * 0.2, -0.15 - tier * 0.2]} castShadow receiveShadow>
-                    <boxGeometry args={[standWidth, 0.15, 0.25]} />
-                    <meshStandardMaterial color={tier % 2 === 0 ? concreteColor : concreteDark} />
-                  </mesh>
-                ))}
-                {/* Standing fans */}
-                {[0, 1, 2, 3].map((row) =>
-                  Array.from({ length: numFansPerRow }).map((_, i) => {
-                    const x = -standWidth / 2 + 0.25 + i * (standWidth / numFansPerRow) + (row % 2 === 0 ? 0 : 0.15)
-                    return (
-                      <group key={`fan-front-${row}-${i}`} position={[x, 0.17 + row * 0.2, -0.15 - row * 0.2]}>
-                        <mesh position={[0, 0.15, 0]} castShadow>
-                          <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
-                          <meshStandardMaterial color={fanColors[(i + row + 3) % fanColors.length]} />
-                        </mesh>
-                        <mesh position={[0, 0.32, 0]} castShadow>
-                          <sphereGeometry args={[0.05, 8, 8]} />
-                          <meshStandardMaterial color="#ffdbac" />
-                        </mesh>
-                      </group>
-                    )
-                  })
-                )}
-              </group>
-            )}
-          </>
-        )
-      })()}
 
       {/* Collision walls (invisible, at boarding positions) */}
       {/* Left wall */}
