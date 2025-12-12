@@ -10,6 +10,7 @@ import Pitch from './Pitch'
 import FlickController from './FlickController'
 import PlayerDragController from './PlayerDragController'
 import SettingsPanel from './SettingsPanel'
+import CoinToss from './CoinToss'
 import { useGame, TEAMS as LEGACY_TEAMS } from '../contexts/GameContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useMatch } from '../contexts/MatchContext'
@@ -190,7 +191,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, isPlayable, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers, currentTurn, onBallHit }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -241,13 +242,17 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           ref={ballRef}
           position={[0, 0.1, 0]}
         />
-        {/* Flick controller for gameplay - only active during play */}
-        {!isPositioning && !isCompleted && (
+        {/* Flick controller for gameplay - only active during kick_off and in_progress */}
+        {isPlayable && (
           <FlickController
             playerRef={activeTeamRefs.current[activePlayerIndex]}
             ballRef={ballRef}
             onDraggingChange={onDraggingChange}
             onActionStateChange={onActionStateChange}
+            currentTurn={currentTurn}
+            myTeam={isHomePlayer ? 'home' : 'away'}
+            activePlayerIndex={activePlayerIndex}
+            onBallHit={onBallHit}
           />
         )}
         {/* Drag controller for positioning mode */}
@@ -337,12 +342,20 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     goals,
     formattedDuration,
     gameStatus,
+    currentTurn,
+    hitCount,
+    isKickOff,
+    coinTossResult,
+    coinTossAnimating,
     isSaving,
     recordGoal,
     saveGame,
     startNewGame,
     startPositioning,
     finishPositioning,
+    performCoinToss,
+    startKickOff,
+    recordBallHit,
     savedGames,
     fetchSavedGames,
     loadGame,
@@ -508,6 +521,15 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       teamName: scoringTeam === 'home' ? homeTeam.name : awayTeam.name
     })
 
+    // Reset ball to center after a short delay
+    setTimeout(() => {
+      if (ballRef.current) {
+        ballRef.current.setTranslation({ x: 0, y: 0.1, z: 0 }, true)
+        ballRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+        ballRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      }
+    }, 1000)
+
     // Hide celebration after 3 seconds
     setTimeout(() => setGoalCelebration(null), 3000)
   }, [activePlayerIndex, recordGoal, homePlayers, homeTeam, awayTeam])
@@ -661,6 +683,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             standVisibility={standVisibility}
             isPositioning={gameStatus === 'positioning'}
             isCompleted={gameStatus === 'completed'}
+            isPlayable={gameStatus === 'kick_off' || gameStatus === 'in_progress'}
             pitchSettings={settings.pitch}
             isHomePlayer={isHomePlayer}
             myTeamRefs={myTeamRefs}
@@ -668,6 +691,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             awayTeam={awayTeam}
             homePlayers={homePlayers}
             awayPlayers={awayPlayers}
+            currentTurn={currentTurn}
+            onBallHit={recordBallHit}
           />
         </Suspense>
 
@@ -820,7 +845,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       )}
 
       {/* Camera controls - bottom left */}
-      {gameStatus !== 'completed' && (
+      {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
           bottom: '20px',
@@ -984,7 +1009,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       )}
 
       {/* Top right buttons - settings and exit */}
-      {gameStatus !== 'completed' && (
+      {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
           top: '55px',
@@ -1022,7 +1047,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       )}
 
       {/* Control buttons - bottom right */}
-      {gameStatus !== 'completed' && (
+      {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
           bottom: '20px',
@@ -1094,6 +1119,88 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Coin Toss Overlay */}
+      <CoinToss
+        isVisible={gameStatus === 'coin_toss'}
+        isAnimating={coinTossAnimating}
+        result={coinTossResult}
+        homeTeamName={homeTeam?.name || 'Home'}
+        awayTeamName={awayTeam?.name || 'Away'}
+        homeTeamColor={homeTeam?.kit?.primary || '#670E36'}
+        awayTeamColor={awayTeam?.kit?.primary || '#FFFFFF'}
+        onToss={performCoinToss}
+        onContinue={startKickOff}
+      />
+
+      {/* Turn Indicator - shows during gameplay */}
+      {(gameStatus === 'kick_off' || gameStatus === 'in_progress') && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          background: 'rgba(0,0,0,0.85)',
+          padding: '8px 14px',
+          borderRadius: '8px',
+          fontFamily: 'sans-serif',
+          border: '1px solid #444',
+          zIndex: 100,
+          pointerEvents: 'none'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: currentTurn === 'home'
+                ? (homeTeam?.kit?.primary || '#670E36')
+                : (awayTeam?.kit?.primary || '#FFFFFF'),
+              border: '1px solid white'
+            }} />
+            <span style={{
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}>
+              {currentTurn === 'home' ? homeTeam?.shortName : awayTeam?.shortName}'s Turn
+            </span>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            marginTop: '4px'
+          }}>
+            <span style={{ color: '#888', fontSize: '11px' }}>Hits:</span>
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: i < hitCount ? '#44cc44' : '#333',
+                  border: '1px solid #555'
+                }}
+              />
+            ))}
+            {isKickOff && (
+              <span style={{
+                color: '#ffd700',
+                fontSize: '10px',
+                marginLeft: '6px',
+                textTransform: 'uppercase'
+              }}>
+                Kick Off
+              </span>
+            )}
+          </div>
         </div>
       )}
 
