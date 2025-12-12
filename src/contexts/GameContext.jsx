@@ -48,12 +48,19 @@ export function GameProvider({ children }) {
   const [matchStartTime, setMatchStartTime] = useState(null)
   const [matchDuration, setMatchDuration] = useState(0)
   const [currentTurn, setCurrentTurn] = useState('home')
-  const [gameStatus, setGameStatus] = useState('not_started') // not_started, positioning, in_progress, paused, completed
+  const [gameStatus, setGameStatus] = useState('not_started') // not_started, positioning, coin_toss, kick_off, in_progress, paused, completed
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaveTime, setLastSaveTime] = useState(null)
   const [savedGames, setSavedGames] = useState([])
   const [isPracticeMode, setIsPracticeMode] = useState(false)
+
+  // Game rules state
+  const [hitCount, setHitCount] = useState(0) // Number of consecutive hits by current team (max 3)
+  const [lastPlayerToHit, setLastPlayerToHit] = useState(null) // { team, playerIndex }
+  const [isKickOff, setIsKickOff] = useState(true) // True at start and after goals
+  const [coinTossResult, setCoinTossResult] = useState(null) // 'home' or 'away'
+  const [coinTossAnimating, setCoinTossAnimating] = useState(false)
 
   // Track last known scorer for goal detection
   const lastScorerRef = useRef(null)
@@ -64,7 +71,7 @@ export function GameProvider({ children }) {
   // Timer for match duration - ends game after 1 minute (unless in practice mode)
   useEffect(() => {
     let interval
-    if (gameStatus === 'in_progress' && matchStartTime) {
+    if ((gameStatus === 'in_progress' || gameStatus === 'kick_off') && matchStartTime) {
       interval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - matchStartTime) / 1000)
         setMatchDuration(elapsed)
@@ -86,13 +93,88 @@ export function GameProvider({ children }) {
     setMatchDuration(0)
     setCurrentTurn('home')
     setGameStatus('positioning')
+    setHitCount(0)
+    setLastPlayerToHit(null)
+    setIsKickOff(true)
+    setCoinTossResult(null)
+    setCoinTossAnimating(false)
     lastScorerRef.current = null
   }, [])
 
-  // Finish positioning and start the game
+  // Finish positioning and go to coin toss
   const finishPositioning = useCallback(() => {
+    setGameStatus('coin_toss')
+  }, [])
+
+  // Perform the coin toss
+  const performCoinToss = useCallback(() => {
+    setCoinTossAnimating(true)
+    // Simulate coin flip animation (result after delay)
+    setTimeout(() => {
+      const result = Math.random() < 0.5 ? 'home' : 'away'
+      setCoinTossResult(result)
+      setCurrentTurn(result)
+      setCoinTossAnimating(false)
+    }, 1500) // 1.5 second animation
+  }, [])
+
+  // Start kick-off after coin toss
+  const startKickOff = useCallback(() => {
     setMatchStartTime(Date.now())
-    setGameStatus('in_progress')
+    setIsKickOff(true)
+    setHitCount(0)
+    setLastPlayerToHit(null)
+    setGameStatus('kick_off')
+  }, [])
+
+  // Record a ball hit by a player
+  const recordBallHit = useCallback((team, playerIndex) => {
+    // During kick-off, the hitting player can't hit again immediately
+    if (isKickOff) {
+      setLastPlayerToHit({ team, playerIndex })
+      setIsKickOff(false)
+      setHitCount(1)
+      setGameStatus('in_progress')
+      return { success: true, turnChanged: false }
+    }
+
+    // Check if the same player is trying to hit again during kick-off follow-up
+    // After kick-off, a different player must hit the ball
+    if (lastPlayerToHit &&
+        lastPlayerToHit.team === team &&
+        lastPlayerToHit.playerIndex === playerIndex &&
+        hitCount === 1) {
+      // Same player can't hit twice in a row right after kick-off
+      return { success: false, reason: 'different_player_required' }
+    }
+
+    // If it's the current team hitting
+    if (team === currentTurn) {
+      const newHitCount = hitCount + 1
+      setLastPlayerToHit({ team, playerIndex })
+
+      if (newHitCount >= 3) {
+        // Max hits reached, switch turn
+        setHitCount(0)
+        setCurrentTurn(team === 'home' ? 'away' : 'home')
+        return { success: true, turnChanged: true, reason: 'max_hits_reached' }
+      } else {
+        setHitCount(newHitCount)
+        return { success: true, turnChanged: false }
+      }
+    } else {
+      // Other team hit the ball, switch turn to them
+      setCurrentTurn(team)
+      setHitCount(1)
+      setLastPlayerToHit({ team, playerIndex })
+      return { success: true, turnChanged: true }
+    }
+  }, [currentTurn, hitCount, isKickOff, lastPlayerToHit])
+
+  // Switch turn manually (if needed)
+  const switchTurn = useCallback(() => {
+    setCurrentTurn(prev => prev === 'home' ? 'away' : 'home')
+    setHitCount(0)
   }, [])
 
   // Start a new game (skips positioning, starts immediately)
@@ -104,6 +186,11 @@ export function GameProvider({ children }) {
     setMatchDuration(0)
     setCurrentTurn('home')
     setGameStatus('in_progress')
+    setHitCount(0)
+    setLastPlayerToHit(null)
+    setIsKickOff(false)
+    setCoinTossResult(null)
+    setCoinTossAnimating(false)
     lastScorerRef.current = null
   }, [])
 
@@ -123,6 +210,14 @@ export function GameProvider({ children }) {
       ...prev,
       [team]: prev[team] + 1
     }))
+
+    // Set up for kick-off: the team that conceded takes the kick-off
+    const kickOffTeam = team === 'home' ? 'away' : 'home'
+    setCurrentTurn(kickOffTeam)
+    setIsKickOff(true)
+    setHitCount(0)
+    setLastPlayerToHit(null)
+    setGameStatus('kick_off')
 
     return newGoal
   }, [matchDuration])
@@ -291,6 +386,13 @@ export function GameProvider({ children }) {
     savedGames,
     isPracticeMode,
 
+    // Game rules state
+    hitCount,
+    lastPlayerToHit,
+    isKickOff,
+    coinTossResult,
+    coinTossAnimating,
+
     // Actions
     startNewGame,
     startPositioning,
@@ -306,6 +408,12 @@ export function GameProvider({ children }) {
     endGame,
     setCurrentTurn,
     setIsPracticeMode,
+
+    // Game rules actions
+    performCoinToss,
+    startKickOff,
+    recordBallHit,
+    switchTurn,
 
     // Team configurations
     TEAMS

@@ -37,7 +37,7 @@ function getPowerForHoldTime(holdTime) {
 }
 
 // Hold-to-charge controller - press and hold to build power, direction based on touch position
-function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange }) {
+function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, currentTurn, myTeam, activePlayerIndex, onBallHit }) {
   const { camera, gl, raycaster } = useThree()
   const [isHolding, setIsHolding] = useState(false)
   const [holdPosition, setHoldPosition] = useState(null) // Where the user is holding
@@ -45,6 +45,10 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   const [canFlick, setCanFlick] = useState(true)
   const [currentPlayerPos, setCurrentPlayerPos] = useState([0, 0, 0])
   const [isInMotion, setIsInMotion] = useState(false)
+  const [turnMessage, setTurnMessage] = useState(null)
+
+  // Check if it's my turn
+  const isMyTurn = currentTurn === myTeam
 
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const intersectPoint = useRef(new THREE.Vector3())
@@ -130,6 +134,13 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     // Can't flick during cooldown or while objects are moving
     if (!canFlick || isInMotion) return
 
+    // Check if it's my turn
+    if (!isMyTurn) {
+      setTurnMessage("Not your turn!")
+      setTimeout(() => setTurnMessage(null), 1500)
+      return
+    }
+
     const worldPos = screenToWorld(e.clientX, e.clientY)
 
     if (isValidHoldStart(worldPos)) {
@@ -139,7 +150,7 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       holdStartTime.current = performance.now()
       e.target.setPointerCapture(e.pointerId)
     }
-  }, [screenToWorld, isValidHoldStart, canFlick, isInMotion])
+  }, [screenToWorld, isValidHoldStart, canFlick, isInMotion, isMyTurn])
 
   const handlePointerMove = useCallback((e) => {
     if (!isHolding) return
@@ -194,6 +205,17 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
       // Apply impulse to player
       playerRef.current.applyImpulse(impulse, true)
 
+      // Record the ball hit (player has been flicked, will attempt to hit ball)
+      if (onBallHit) {
+        const hitResult = onBallHit(myTeam, activePlayerIndex)
+        if (hitResult && hitResult.turnChanged) {
+          setTurnMessage(hitResult.reason === 'max_hits_reached'
+            ? 'Max hits! Turn switched'
+            : 'Turn switched')
+          setTimeout(() => setTurnMessage(null), 1500)
+        }
+      }
+
       // Brief cooldown to prevent spam
       setCanFlick(false)
       setTimeout(() => setCanFlick(true), 500)
@@ -203,7 +225,7 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     setHoldPosition(null)
     setHoldTime(0)
     holdStartTime.current = null
-  }, [isHolding, holdPosition, holdTime, playerRef])
+  }, [isHolding, holdPosition, holdTime, playerRef, onBallHit, myTeam, activePlayerIndex])
 
   // Register event listeners on the canvas
   const { gl: renderer } = useThree()
@@ -253,9 +275,9 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
     }
   })() : null
 
-  // Get current circle color based on hold state
-  const circleColor = isHolding ? getColorForHoldTime(holdTime) : '#4488ff'
-  const circleOpacity = isHolding ? 0.9 : 0.5
+  // Get current circle color based on hold state and turn
+  const circleColor = !isMyTurn ? '#666666' : isHolding ? getColorForHoldTime(holdTime) : '#4488ff'
+  const circleOpacity = !isMyTurn ? 0.3 : isHolding ? 0.9 : 0.5
 
   // Only show launch circle when not in motion
   const showLaunchCircle = !isInMotion && canFlick
@@ -322,11 +344,17 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
           whiteSpace: 'nowrap',
           userSelect: 'none'
         }}>
-          {isHolding
-            ? holdTime >= MAX_HOLD_TIME
+          {turnMessage ? (
+            <span style={{ color: '#ffd700' }}>{turnMessage}</span>
+          ) : isHolding ? (
+            holdTime >= MAX_HOLD_TIME
               ? 'Overcharged! No power'
               : `Power: ${powerPercent}% - Release to move!`
-            : 'Hold the ring to charge power'}
+          ) : isMyTurn ? (
+            'Hold the ring to charge power'
+          ) : (
+            <span style={{ color: '#ff6b6b' }}>Waiting for opponent's turn</span>
+          )}
         </div>
       </Html>
     </>
