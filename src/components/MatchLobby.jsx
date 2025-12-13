@@ -77,7 +77,8 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
     )
 
     if (result.success) {
-      onMatchAccepted(match.id, match)
+      // Use the updated match data returned from acceptMatch
+      onMatchAccepted(match.id, result.data)
     } else {
       setError(result.error || 'Failed to accept invite')
     }

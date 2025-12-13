@@ -97,6 +97,24 @@ export const MatchService = {
     try {
       const matchRef = doc(db, MATCHES_COLLECTION, matchId)
 
+      // First fetch the match to validate it exists and user is authorized
+      const matchSnap = await getDoc(matchRef)
+      if (!matchSnap.exists()) {
+        return { success: false, error: 'Match not found' }
+      }
+
+      const matchData = matchSnap.data()
+
+      // Validate match is in waiting status
+      if (matchData.status !== 'waiting') {
+        return { success: false, error: 'Match is no longer waiting for acceptance' }
+      }
+
+      // Validate user is the invited player
+      if (awayPlayerEmail.toLowerCase() !== matchData.invitedEmail.toLowerCase()) {
+        return { success: false, error: 'You are not invited to this match' }
+      }
+
       await updateDoc(matchRef, {
         awayPlayer: {
           uid: awayPlayerUid,
@@ -106,7 +124,18 @@ export const MatchService = {
         updatedAt: serverTimestamp()
       })
 
-      return { success: true }
+      // Return updated match data
+      return {
+        success: true,
+        data: {
+          ...matchData,
+          awayPlayer: {
+            uid: awayPlayerUid,
+            email: awayPlayerEmail
+          },
+          status: 'accepted'
+        }
+      }
     } catch (error) {
       console.error('Error accepting match:', error)
       return { success: false, error: error.message }
