@@ -37,7 +37,7 @@ function getPowerForHoldTime(holdTime) {
 }
 
 // Hold-to-charge controller - press and hold to build power, direction based on touch position
-function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, currentTurn, myTeam, activePlayerIndex, onBallHit }) {
+function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateChange, currentTurn, myTeam, activePlayerIndex, onBallHit, isPractice }) {
   const { camera, gl, raycaster } = useThree()
   const [isHolding, setIsHolding] = useState(false)
   const [holdPosition, setHoldPosition] = useState(null) // Where the user is holding
@@ -47,8 +47,8 @@ function FlickController({ playerRef, ballRef, onDraggingChange, onActionStateCh
   const [isInMotion, setIsInMotion] = useState(false)
   const [turnMessage, setTurnMessage] = useState(null)
 
-  // Check if it's my turn
-  const isMyTurn = currentTurn === myTeam
+  // Check if it's my turn (in practice mode, player controls both teams)
+  const isMyTurn = isPractice || currentTurn === myTeam
 
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const intersectPoint = useRef(new THREE.Vector3())

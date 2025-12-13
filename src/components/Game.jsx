@@ -211,7 +211,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings, goalScored })
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isKickOffPositioning, isCompleted, isPlayable, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers, currentTurn, onBallHit, goalScored }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isKickOffPositioning, isCompleted, isPlayable, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers, currentTurn, onBallHit, goalScored, isPractice }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -273,6 +273,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
             myTeam={isHomePlayer ? 'home' : 'away'}
             activePlayerIndex={activePlayerIndex}
             onBallHit={onBallHit}
+            isPractice={isPractice}
           />
         )}
         {/* Drag controller for positioning mode (including kick-off after goals) */}
@@ -742,6 +743,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             currentTurn={currentTurn}
             onBallHit={recordBallHit}
             goalScored={goalCelebration !== null}
+            isPractice={isPractice}
           />
         </Suspense>
 
