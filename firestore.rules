@@ -1,0 +1,308 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // HELPER FUNCTIONS
+    // ==========================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the current user's ID
+    function currentUserId() {
+      return request.auth.uid;
+    }
+
+    // Get the current user's email (lowercase)
+    function currentUserEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    // Get user document for the authenticated user
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Check if current user has a specific role
+    function hasRole(role) {
+      let userData = getUserData();
+      return userData != null && role in userData.roles;
+    }
+
+    // Check if current user is an admin
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // Check if current user is a group organiser
+    function isGroupOrganiser() {
+      return hasRole('group_organiser');
+    }
+
+    // Check if the current user is the document owner
+    function isOwner(userId) {
+      return currentUserId() == userId;
+    }
+
+    // Check if a field is not being modified
+    function fieldUnchanged(field) {
+      return !(field in request.resource.data) ||
+             request.resource.data[field] == resource.data[field];
+    }
+
+    // ==========================================
+    // USERS COLLECTION
+    // ==========================================
+    match /users/{userId} {
+      // Read rules:
+      // - Users can read their own profile
+      // - Admins can read any profile
+      // - Users can query by email (for match invitations)
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        isAdmin() ||
+        isGroupOrganiser()
+      );
+
+      // Create rules:
+      // - Only admins can create user profiles
+      // - Or the user is creating their own profile during registration
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (isOwner(userId) && request.resource.data.email == currentUserEmail())
+      );
+
+      // Update rules:
+      // - Users can update their own profile (but not roles or certain fields)
+      // - Admins can update any profile
+      // - Group organisers can update group memberships for users in their groups
+      allow update: if isAuthenticated() && (
+        // Admins can do anything
+        isAdmin() ||
+        // Users can update their own profile but NOT roles
+        (isOwner(userId) &&
+          fieldUnchanged('roles') &&
+          fieldUnchanged('createdAt') &&
+          fieldUnchanged('createdBy')
+        )
+      );
+
+      // Delete rules:
+      // - Only admins can delete users
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Allow email queries for match invitations (limited read)
+    match /users/{userId} {
+      allow list: if isAuthenticated() && (
+        isAdmin() ||
+        isGroupOrganiser() ||
+        // Allow querying by email for match invitations
+        (request.query.limit <= 1 &&
+         'email' in request.query.filters)
+      );
+    }
+
+    // ==========================================
+    // MATCHES COLLECTION
+    // ==========================================
+    match /matches/{matchId} {
+      // Helper: Check if user is a participant in this match
+      function isParticipant() {
+        let matchData = resource.data;
+        return currentUserId() == matchData.homePlayer.uid ||
+               currentUserId() == matchData.awayPlayer.uid ||
+               currentUserEmail() == matchData.invitedEmail;
+      }
+
+      // Helper: Check if user is the home player
+      function isHomePlayer() {
+        return currentUserId() == resource.data.homePlayer.uid;
+      }
+
+      // Helper: Check if user is the away player
+      function isAwayPlayer() {
+        return currentUserId() == resource.data.awayPlayer.uid;
+      }
+
+      // Helper: Check if user will be a participant (for creates)
+      function willBeParticipant() {
+        return currentUserId() == request.resource.data.homePlayer.uid ||
+               currentUserEmail() == request.resource.data.invitedEmail;
+      }
+
+      // Read rules:
+      // - Participants can read matches they're involved in
+      // - Admins can read any match
+      allow read: if isAuthenticated() && (
+        isParticipant() ||
+        isAdmin()
+      );
+
+      // List rules for querying matches
+      allow list: if isAuthenticated() && (
+        isAdmin() ||
+        // Allow querying matches where user is home player
+        (request.query.limit <= 50 && (
+          'homePlayer.uid' in request.query.filters ||
+          'awayPlayer.uid' in request.query.filters ||
+          'invitedEmail' in request.query.filters
+        ))
+      );
+
+      // Create rules:
+      // - Authenticated users can create matches where they are the home player
+      allow create: if isAuthenticated() &&
+        request.resource.data.homePlayer.uid == currentUserId() &&
+        request.resource.data.status == 'waiting';
+
+      // Update rules:
+      // - Home player can update game state and certain fields
+      // - Away player can accept/decline and update game state during their turn
+      // - Admins can update any match
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        // Home player can update most fields
+        (isHomePlayer() && (
+          resource.data.status in ['waiting', 'accepted', 'positioning', 'in_progress']
+        )) ||
+        // Away player (invited user) can accept/decline
+        (currentUserEmail() == resource.data.invitedEmail &&
+          resource.data.status == 'waiting' &&
+          request.resource.data.status in ['accepted', 'cancelled']
+        ) ||
+        // Away player can update game state during match
+        (isAwayPlayer() &&
+          resource.data.status in ['positioning', 'in_progress']
+        )
+      );
+
+      // Delete rules:
+      // - Only home player can delete their own match (if waiting/cancelled)
+      // - Admins can delete any match
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        (isHomePlayer() && resource.data.status in ['waiting', 'cancelled', 'completed'])
+      );
+    }
+
+    // ==========================================
+    // GAME STATE COLLECTION
+    // ==========================================
+    match /gameState/{gameId} {
+      // Helper: Check if user owns this game state
+      function isGameOwner() {
+        return currentUserId() == resource.data.userId;
+      }
+
+      // Helper: Check if user is a participant based on emails
+      function isGameParticipant() {
+        let data = resource.data;
+        return currentUserId() == data.userId ||
+               ('playerEmails' in data && (
+                 currentUserEmail() == data.playerEmails.home ||
+                 currentUserEmail() == data.playerEmails.away
+               ));
+      }
+
+      // Read rules:
+      // - Users can read game states they own or participate in
+      // - Admins can read any game state
+      allow read: if isAuthenticated() && (
+        isGameOwner() ||
+        isGameParticipant() ||
+        isAdmin()
+      );
+
+      // List rules for querying game states
+      allow list: if isAuthenticated() && (
+        isAdmin() ||
+        // Allow querying games where user is the owner
+        ('userId' in request.query.filters)
+      );
+
+      // Create rules:
+      // - Users can create game states where they are the owner
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == currentUserId();
+
+      // Update rules:
+      // - Game owner can update their game state
+      // - Participants can update during multiplayer games
+      // - Admins can update any game state
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        isGameOwner() ||
+        isGameParticipant()
+      );
+
+      // Delete rules:
+      // - Only game owner can delete their game state
+      // - Admins can delete any game state
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        isGameOwner()
+      );
+    }
+
+    // ==========================================
+    // GROUPS COLLECTION
+    // ==========================================
+    match /groups/{groupId} {
+      // Helper: Check if user is an organiser of this group
+      function isGroupOrganiserOf() {
+        return currentUserId() in resource.data.organisers;
+      }
+
+      // Helper: Check if user is a member of this group
+      function isGroupMember() {
+        let userData = getUserData();
+        return userData != null && groupId in userData.groups;
+      }
+
+      // Read rules:
+      // - Group members can read group details
+      // - Group organisers can read group details
+      // - Admins can read any group
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        isGroupOrganiser() ||
+        isGroupMember() ||
+        isGroupOrganiserOf()
+      );
+
+      // List rules:
+      // - Admins and group organisers can list all groups
+      // - Regular users can list groups (to see available groups)
+      allow list: if isAuthenticated();
+
+      // Create rules:
+      // - Only admins can create groups
+      allow create: if isAuthenticated() && isAdmin();
+
+      // Update rules:
+      // - Group organisers can update groups they organise
+      // - Admins can update any group
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        isGroupOrganiserOf()
+      );
+
+      // Delete rules:
+      // - Only admins can delete groups
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // ==========================================
+    // DEFAULT DENY
+    // ==========================================
+    // Deny access to any other collections not explicitly defined
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
