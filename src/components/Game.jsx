@@ -280,6 +280,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
         <PlayerDragController
           playerRef={activeTeamRefs.current[activePlayerIndex]}
           isPositioning={isPositioning || isKickOffPositioning}
+          isKickOffPositioning={isKickOffPositioning}
         />
         {/* Goal detection */}
         <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} pitchSettings={pitchSettings} goalScored={goalScored} />
