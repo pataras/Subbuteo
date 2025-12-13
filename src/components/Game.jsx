@@ -156,31 +156,51 @@ function CameraController({ playerRefs, activePlayerIndex, ballRef, isInMotion, 
   return null
 }
 
-// Goal detection component
-function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
+// Goal detection component - checks if ball enters the goal net area
+function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings, goalScored }) {
   const halfLength = pitchSettings.length / 2
   const widthScale = pitchSettings.width / 6
   const goalHalfWidth = (0.7 * widthScale) / 2
+  const goalHeight = 0.25
+  const netDepth = 0.15 // How far the net extends behind the goal line
+  const goalScoredRef = useRef(false)
+
+  // Reset the goal scored flag when goalScored prop changes to false
+  useEffect(() => {
+    if (!goalScored) {
+      goalScoredRef.current = false
+    }
+  }, [goalScored])
 
   useFrame(() => {
-    if (!ballRef.current) return
+    if (!ballRef.current || goalScoredRef.current) return
 
     const ballPos = ballRef.current.translation()
     const prevZ = lastBallZ.current
 
-    // Check if ball crossed into top goal (Aston Villa scores)
-    // Ball going from z > -halfLength to z < -halfLength
+    // Check if ball is in top goal net area (home team/Aston Villa scores)
+    // Ball must be: past goal line, within goal posts, below crossbar, within net depth
     if (prevZ !== null && prevZ > -halfLength && ballPos.z < -halfLength) {
-      if (ballPos.x > -goalHalfWidth && ballPos.x < goalHalfWidth && ballPos.y < 0.25) {
-        onGoal('home') // Aston Villa scores
+      if (ballPos.x > -goalHalfWidth &&
+          ballPos.x < goalHalfWidth &&
+          ballPos.y < goalHeight &&
+          ballPos.y > 0 &&
+          ballPos.z > -halfLength - netDepth) {
+        goalScoredRef.current = true
+        onGoal('home') // Home team (Aston Villa) scores
       }
     }
 
-    // Check if ball crossed into bottom goal (Preston scores)
-    // Ball going from z < halfLength to z > halfLength
+    // Check if ball is in bottom goal net area (away team/Preston scores)
+    // Ball must be: past goal line, within goal posts, below crossbar, within net depth
     if (prevZ !== null && prevZ < halfLength && ballPos.z > halfLength) {
-      if (ballPos.x > -goalHalfWidth && ballPos.x < goalHalfWidth && ballPos.y < 0.25) {
-        onGoal('away') // Preston scores
+      if (ballPos.x > -goalHalfWidth &&
+          ballPos.x < goalHalfWidth &&
+          ballPos.y < goalHeight &&
+          ballPos.y > 0 &&
+          ballPos.z < halfLength + netDepth) {
+        goalScoredRef.current = true
+        onGoal('away') // Away team (Preston) scores
       }
     }
 
@@ -191,7 +211,7 @@ function GoalDetector({ ballRef, onGoal, lastBallZ, pitchSettings }) {
 }
 
 // Scene content - separated for physics context
-function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isCompleted, isPlayable, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers, currentTurn, onBallHit }) {
+function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayerIndex, playerRefs, prestonRefs, ballRef, cameraZoom, cameraHeight, orbitAngle, onGoal, lastBallZ, onCameraPositionChange, standVisibility, isPositioning, isKickOffPositioning, isCompleted, isPlayable, pitchSettings, isHomePlayer = true, myTeamRefs, homeTeam, awayTeam, homePlayers, awayPlayers, currentTurn, onBallHit, goalScored }) {
   // Use the correct team refs based on which player we are
   const activeTeamRefs = myTeamRefs || playerRefs
   return (
@@ -255,13 +275,13 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
             onBallHit={onBallHit}
           />
         )}
-        {/* Drag controller for positioning mode */}
+        {/* Drag controller for positioning mode (including kick-off after goals) */}
         <PlayerDragController
           playerRef={activeTeamRefs.current[activePlayerIndex]}
-          isPositioning={isPositioning}
+          isPositioning={isPositioning || isKickOffPositioning}
         />
         {/* Goal detection */}
-        <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} pitchSettings={pitchSettings} />
+        <GoalDetector ballRef={ballRef} onGoal={onGoal} lastBallZ={lastBallZ} pitchSettings={pitchSettings} goalScored={goalScored} />
         {/* Camera controller - inside Physics so refs are populated */}
         <CameraController
           playerRefs={activeTeamRefs}
@@ -272,7 +292,7 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
           cameraHeight={cameraHeight}
           orbitAngle={orbitAngle}
           onCameraPositionChange={onCameraPositionChange}
-          isPositioning={isPositioning}
+          isPositioning={isPositioning || isKickOffPositioning}
         />
       </Physics>
     </>
@@ -505,6 +525,28 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     return () => clearInterval(interval)
   }, [panDirection])
 
+  // Reset all players to their default positions
+  const resetPlayersToDefault = useCallback(() => {
+    // Reset home team players
+    DEFAULT_HOME_POSITIONS.forEach((pos, index) => {
+      const ref = playerRefs.current[index]
+      if (ref?.current) {
+        ref.current.setTranslation({ x: pos[0], y: pos[1], z: pos[2] }, true)
+        ref.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+        ref.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      }
+    })
+    // Reset away team players
+    DEFAULT_AWAY_POSITIONS.forEach((pos, index) => {
+      const ref = prestonRefs.current[index]
+      if (ref?.current) {
+        ref.current.setTranslation({ x: pos[0], y: pos[1], z: pos[2] }, true)
+        ref.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
+        ref.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
+      }
+    })
+  }, [])
+
   // Handle goal scored
   const handleGoal = useCallback((scoringTeam) => {
     // Get the active player as the scorer (simplification - in real game would track last touch)
@@ -521,18 +563,23 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       teamName: scoringTeam === 'home' ? homeTeam.name : awayTeam.name
     })
 
-    // Reset ball to center after a short delay
+    // Reset ball and players after celebration
     setTimeout(() => {
+      // Reset ball to center
       if (ballRef.current) {
         ballRef.current.setTranslation({ x: 0, y: 0.1, z: 0 }, true)
         ballRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true)
         ballRef.current.setAngvel({ x: 0, y: 0, z: 0 }, true)
       }
-    }, 1000)
+      // Reset players to default positions
+      resetPlayersToDefault()
+      // Reset goal detection
+      lastBallZ.current = null
+    }, 1500)
 
     // Hide celebration after 3 seconds
     setTimeout(() => setGoalCelebration(null), 3000)
-  }, [activePlayerIndex, recordGoal, homePlayers, homeTeam, awayTeam])
+  }, [activePlayerIndex, recordGoal, homePlayers, homeTeam, awayTeam, resetPlayersToDefault])
 
   // Handle save game
   const handleSaveGame = useCallback(async () => {
@@ -682,6 +729,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             onCameraPositionChange={handleCameraPositionChange}
             standVisibility={standVisibility}
             isPositioning={gameStatus === 'positioning'}
+            isKickOffPositioning={gameStatus === 'kick_off'}
             isCompleted={gameStatus === 'completed'}
             isPlayable={gameStatus === 'kick_off' || gameStatus === 'in_progress'}
             pitchSettings={settings.pitch}
@@ -693,6 +741,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             awayPlayers={awayPlayers}
             currentTurn={currentTurn}
             onBallHit={recordBallHit}
+            goalScored={goalCelebration !== null}
           />
         </Suspense>
 
@@ -1145,7 +1194,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           padding: '8px 14px',
           borderRadius: '8px',
           fontFamily: 'sans-serif',
-          border: '1px solid #444',
+          border: gameStatus === 'kick_off' ? '1px solid #ffd700' : '1px solid #444',
           zIndex: 100,
           pointerEvents: 'none'
         }}>
@@ -1171,36 +1220,52 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               {currentTurn === 'home' ? homeTeam?.shortName : awayTeam?.shortName}'s Turn
             </span>
           </div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            marginTop: '4px'
-          }}>
-            <span style={{ color: '#888', fontSize: '11px' }}>Hits:</span>
-            {[0, 1, 2].map(i => (
-              <div
-                key={i}
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: i < hitCount ? '#44cc44' : '#333',
-                  border: '1px solid #555'
-                }}
-              />
-            ))}
-            {isKickOff && (
-              <span style={{
+          {gameStatus === 'kick_off' ? (
+            <div style={{
+              marginTop: '6px',
+              padding: '4px 8px',
+              background: 'rgba(255, 215, 0, 0.2)',
+              borderRadius: '4px',
+              textAlign: 'center'
+            }}>
+              <div style={{
                 color: '#ffd700',
-                fontSize: '10px',
-                marginLeft: '6px',
+                fontSize: '11px',
+                fontWeight: 'bold',
                 textTransform: 'uppercase'
               }}>
                 Kick Off
-              </span>
-            )}
-          </div>
+              </div>
+              <div style={{
+                color: '#aaa',
+                fontSize: '10px',
+                marginTop: '2px'
+              }}>
+                Reposition players, then flick to start
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginTop: '4px'
+            }}>
+              <span style={{ color: '#888', fontSize: '11px' }}>Hits:</span>
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: i < hitCount ? '#44cc44' : '#333',
+                    border: '1px solid #555'
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
