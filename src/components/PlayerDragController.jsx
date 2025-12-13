@@ -5,7 +5,7 @@ import { useSettings } from '../contexts/SettingsContext'
 
 // Controller for dragging player during positioning mode
 // Supports both click-to-position and drag-to-position
-function PlayerDragController({ playerRef, isPositioning }) {
+function PlayerDragController({ playerRef, isPositioning, isKickOffPositioning = false }) {
   const { camera, gl, raycaster } = useThree()
   const { settings } = useSettings()
 
@@ -62,6 +62,7 @@ function PlayerDragController({ playerRef, isPositioning }) {
   }, [camera, gl, raycaster])
 
   // Check if click is near the player
+  // During kick-off mode, exclude the flick ring area (0.08-0.30) so FlickController can handle it
   const isNearPlayer = useCallback((worldPos) => {
     const playerPos = playerRef.current?.translation()
     if (!playerPos) return false
@@ -70,8 +71,14 @@ function PlayerDragController({ playerRef, isPositioning }) {
       Math.pow(worldPos.x - playerPos.x, 2) + Math.pow(worldPos.z - playerPos.z, 2)
     )
 
+    // During kick-off positioning, only allow dragging from inside the flick ring
+    // This lets FlickController handle clicks on the ring for striking
+    if (isKickOffPositioning) {
+      return distanceFromPlayer < 0.08
+    }
+
     return distanceFromPlayer <= 0.3
-  }, [playerRef])
+  }, [playerRef, isKickOffPositioning])
 
   const handlePointerDown = useCallback((e) => {
     if (!isPositioning) return
@@ -122,6 +129,20 @@ function PlayerDragController({ playerRef, isPositioning }) {
     if (!isDragging && !hasMoved.current) {
       const worldPos = screenToWorld(e.clientX, e.clientY)
 
+      // During kick-off positioning, don't handle click-to-position on the ring area
+      // This lets FlickController handle it for striking
+      if (isKickOffPositioning) {
+        const playerPos = playerRef.current.translation()
+        const distanceFromPlayer = Math.sqrt(
+          Math.pow(worldPos.x - playerPos.x, 2) + Math.pow(worldPos.z - playerPos.z, 2)
+        )
+        // If click is in the ring area, let FlickController handle it
+        if (distanceFromPlayer >= 0.08 && distanceFromPlayer <= 0.30) {
+          setIsDragging(false)
+          return
+        }
+      }
+
       // Check if click is within pitch bounds
       if (Math.abs(worldPos.x) <= maxX && Math.abs(worldPos.z) <= maxZ) {
         // Clamp to pitch boundaries
@@ -134,7 +155,7 @@ function PlayerDragController({ playerRef, isPositioning }) {
     }
 
     setIsDragging(false)
-  }, [isPositioning, isDragging, screenToWorld, playerRef, maxX, maxZ])
+  }, [isPositioning, isDragging, screenToWorld, playerRef, maxX, maxZ, isKickOffPositioning])
 
   // Register event listeners
   useEffect(() => {
