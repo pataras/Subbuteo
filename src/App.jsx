@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { GameProvider } from './contexts/GameContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { MatchProvider, useMatch } from './contexts/MatchContext'
+import { ToastProvider } from './contexts/ToastContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 import MatchLobby from './components/MatchLobby'
@@ -369,9 +370,11 @@ const organiserBadgeStyle = {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ToastProvider>
   )
 }
 
