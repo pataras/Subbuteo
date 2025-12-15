@@ -83,7 +83,7 @@ export function MatchProvider({ children }) {
       clearInterval(syncIntervalRef.current)
     }
 
-    // Poll every 2 seconds
+    // Poll every 5 seconds
     syncIntervalRef.current = setInterval(async () => {
       try {
         const result = await MatchService.getMatch(matchId)
@@ -99,7 +99,7 @@ export function MatchProvider({ children }) {
       } catch (error) {
         console.error('Error polling game state:', error)
       }
-    }, 2000)
+    }, 5000)
 
     return () => {
       if (syncIntervalRef.current) {
