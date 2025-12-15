@@ -162,6 +162,43 @@ export const MatchService = {
   },
 
   /**
+   * Cancel a match invite (for the match creator/home player)
+   */
+  async cancelMatch(matchId, userUid) {
+    try {
+      const matchRef = doc(db, MATCHES_COLLECTION, matchId)
+
+      // First fetch the match to validate it exists and user is the creator
+      const matchSnap = await getDoc(matchRef)
+      if (!matchSnap.exists()) {
+        return { success: false, error: 'Match not found' }
+      }
+
+      const matchData = matchSnap.data()
+
+      // Validate user is the home player (creator)
+      if (matchData.homePlayer.uid !== userUid) {
+        return { success: false, error: 'Only the match creator can cancel this invite' }
+      }
+
+      // Validate match is in waiting status
+      if (matchData.status !== 'waiting') {
+        return { success: false, error: 'Can only cancel invites that are waiting for acceptance' }
+      }
+
+      await updateDoc(matchRef, {
+        status: 'cancelled',
+        updatedAt: serverTimestamp()
+      })
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error cancelling match:', error)
+      return { success: false, error: error.message }
+    }
+  },
+
+  /**
    * Get a specific match by ID
    */
   async getMatch(matchId) {
