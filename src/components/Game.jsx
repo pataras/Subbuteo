@@ -1116,7 +1116,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Top right buttons - settings and exit */}
+      {/* Top right buttons - confirm/ready, settings and exit */}
       {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
@@ -1126,6 +1126,17 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           display: 'flex',
           gap: '8px'
         }}>
+          {/* Confirm/Reset button - moved to top for Edge browser visibility */}
+          <button
+            onClick={gameStatus === 'positioning' ? handleDone : handleReset}
+            title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
+            style={{
+              ...buttonStyle,
+              background: gameStatus === 'positioning' ? '#44cc44' : '#4488ff'
+            }}
+          >
+            {gameStatus === 'positioning' ? '✓' : '↻'}
+          </button>
           {onBackToLobby && (
             <button
               onClick={onBackToLobby}
@@ -1154,26 +1165,6 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Reset/Start button - bottom right */}
-      {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
-        <div style={{
-          position: 'absolute',
-          bottom: 'var(--mobile-bottom-offset, 20px)',
-          right: '10px',
-          zIndex: 100
-        }}>
-          <button
-            onClick={gameStatus === 'positioning' ? handleDone : handleReset}
-            title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
-            style={{
-              ...buttonStyle,
-              background: gameStatus === 'positioning' ? '#44cc44' : '#4488ff'
-            }}
-          >
-            {gameStatus === 'positioning' ? '✓' : '↻'}
-          </button>
-        </div>
-      )}
 
       {/* Goal scorers panel - bottom left */}
       {goals.length > 0 && (
