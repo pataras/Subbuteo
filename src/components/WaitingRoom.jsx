@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import MatchService from '../services/MatchService'
 
 function WaitingRoom({ matchId, matchData: initialMatchData, isHomePlayer, onStartGame, onCancel }) {
   const { currentUser } = useAuth()
+  const { showError, showSuccess } = useToast()
   const [matchData, setMatchData] = useState(initialMatchData)
   const [isStarting, setIsStarting] = useState(false)
 
@@ -20,28 +22,46 @@ function WaitingRoom({ matchId, matchData: initialMatchData, isHomePlayer, onSta
         if (result.data.status === 'positioning' || result.data.status === 'in_progress') {
           onStartGame(result.data)
         }
+
+        // Show toast when opponent joins
+        if (result.data.status === 'accepted' && isHomePlayer) {
+          showSuccess('Opponent has joined the match!')
+        }
+      } else {
+        showError('Error loading match: ' + (result.error || 'Unknown error'))
       }
     })
 
     return () => unsubscribe()
-  }, [matchId, onStartGame])
+  }, [matchId, onStartGame, isHomePlayer, showError, showSuccess])
 
   const handleStartGame = async () => {
     setIsStarting(true)
 
-    // Update match status to positioning
-    const result = await MatchService.updateMatchStatus(matchId, 'positioning')
+    try {
+      // Update match status to positioning
+      const result = await MatchService.updateMatchStatus(matchId, 'positioning')
 
-    if (result.success) {
-      onStartGame(matchData)
-    } else {
+      if (result.success) {
+        showSuccess('Starting game!')
+        onStartGame(matchData)
+      } else {
+        showError('Failed to start game: ' + (result.error || 'Unknown error'))
+        setIsStarting(false)
+      }
+    } catch (error) {
+      showError('Error starting game: ' + error.message)
       setIsStarting(false)
     }
   }
 
   const handleCancel = async () => {
-    await MatchService.updateMatchStatus(matchId, 'cancelled')
-    onCancel()
+    try {
+      await MatchService.updateMatchStatus(matchId, 'cancelled')
+      onCancel()
+    } catch (error) {
+      showError('Error cancelling match: ' + error.message)
+    }
   }
 
   const isAccepted = matchData?.status === 'accepted'
