@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import MatchService from '../services/MatchService'
 
 const DEFAULT_INVITE_EMAIL = 'Oli@taras.co.uk'
 
 function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTeam, onBack, selectedTeam }) {
   const { currentUser } = useAuth()
+  const { showError, showSuccess, showInfo } = useToast()
   const [inviteEmail, setInviteEmail] = useState(DEFAULT_INVITE_EMAIL)
   const [isCreating, setIsCreating] = useState(false)
+  const [isCheckingInvites, setIsCheckingInvites] = useState(false)
   const [pendingInvites, setPendingInvites] = useState([])
   const [myMatches, setMyMatches] = useState([])
-  const [error, setError] = useState('')
 
   // Fetch pending invites and my matches on mount
   useEffect(() => {
@@ -36,57 +38,96 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
     const invitesResult = await MatchService.getPendingInvites(currentUser.email)
     if (invitesResult.success) {
       setPendingInvites(invitesResult.data)
+    } else {
+      showError('Failed to load invites: ' + (invitesResult.error || 'Unknown error'))
     }
 
     // Get my created matches
     const matchesResult = await MatchService.getMyMatches(currentUser.uid)
     if (matchesResult.success) {
       setMyMatches(matchesResult.data)
+    } else {
+      showError('Failed to load matches: ' + (matchesResult.error || 'Unknown error'))
     }
+  }
+
+  const handleCheckInvites = async () => {
+    setIsCheckingInvites(true)
+    try {
+      const invitesResult = await MatchService.getPendingInvites(currentUser.email)
+      if (invitesResult.success) {
+        setPendingInvites(invitesResult.data)
+        if (invitesResult.data.length === 0) {
+          showInfo('No pending invites found')
+        } else {
+          showSuccess(`Found ${invitesResult.data.length} invite(s)!`)
+        }
+      } else {
+        showError('Failed to check invites: ' + (invitesResult.error || 'Unknown error'))
+      }
+    } catch (error) {
+      showError('Error checking invites: ' + error.message)
+    }
+    setIsCheckingInvites(false)
   }
 
   const handleCreateMatch = async () => {
     if (!inviteEmail.trim()) {
-      setError('Please enter an email address')
+      showError('Please enter an email address')
       return
     }
 
     setIsCreating(true)
-    setError('')
 
-    const result = await MatchService.createMatch(
-      currentUser.uid,
-      currentUser.email,
-      inviteEmail.trim()
-    )
+    try {
+      const result = await MatchService.createMatch(
+        currentUser.uid,
+        currentUser.email,
+        inviteEmail.trim()
+      )
 
-    setIsCreating(false)
+      setIsCreating(false)
 
-    if (result.success) {
-      onMatchCreated(result.matchId, result.matchData)
-    } else {
-      setError(result.error || 'Failed to create match')
+      if (result.success) {
+        showSuccess('Match created! Waiting for opponent...')
+        onMatchCreated(result.matchId, result.matchData)
+      } else {
+        showError(result.error || 'Failed to create match')
+      }
+    } catch (error) {
+      setIsCreating(false)
+      showError('Error creating match: ' + error.message)
     }
   }
 
   const handleAcceptInvite = async (match) => {
-    const result = await MatchService.acceptMatch(
-      match.id,
-      currentUser.uid,
-      currentUser.email
-    )
+    try {
+      const result = await MatchService.acceptMatch(
+        match.id,
+        currentUser.uid,
+        currentUser.email
+      )
 
-    if (result.success) {
-      // Use the updated match data returned from acceptMatch
-      onMatchAccepted(match.id, result.data)
-    } else {
-      setError(result.error || 'Failed to accept invite')
+      if (result.success) {
+        showSuccess('Invite accepted! Joining match...')
+        // Use the updated match data returned from acceptMatch
+        onMatchAccepted(match.id, result.data)
+      } else {
+        showError(result.error || 'Failed to accept invite')
+      }
+    } catch (error) {
+      showError('Error accepting invite: ' + error.message)
     }
   }
 
   const handleDeclineInvite = async (matchId) => {
-    await MatchService.declineMatch(matchId)
-    loadData()
+    try {
+      await MatchService.declineMatch(matchId)
+      showInfo('Invite declined')
+      loadData()
+    } catch (error) {
+      showError('Error declining invite: ' + error.message)
+    }
   }
 
   const handleResumeMatch = (match) => {
@@ -174,37 +215,47 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
           >
             {isCreating ? 'Creating...' : 'Start Match'}
           </button>
-
-          {error && <p style={errorStyle}>{error}</p>}
         </div>
 
-        {/* Pending invites section */}
-        {pendingInvites.length > 0 && (
-          <div style={sectionStyle}>
-            <h2 style={sectionTitleStyle}>Match Invites</h2>
-            {pendingInvites.map((invite) => (
-              <div key={invite.id} style={inviteCardStyle}>
-                <div style={inviteInfoStyle}>
-                  <span style={inviteFromStyle}>From: {invite.homePlayer.email}</span>
+        {/* Check for invites section - always visible */}
+        <div style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>Match Invites</h2>
+          <button
+            onClick={handleCheckInvites}
+            disabled={isCheckingInvites}
+            style={checkInvitesButtonStyle}
+          >
+            {isCheckingInvites ? 'Checking...' : 'Check for Invites'}
+          </button>
+
+          {pendingInvites.length > 0 ? (
+            <div style={invitesListStyle}>
+              {pendingInvites.map((invite) => (
+                <div key={invite.id} style={inviteCardStyle}>
+                  <div style={inviteInfoStyle}>
+                    <span style={inviteFromStyle}>From: {invite.homePlayer.email}</span>
+                  </div>
+                  <div style={inviteActionsStyle}>
+                    <button
+                      onClick={() => handleAcceptInvite(invite)}
+                      style={acceptButtonStyle}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleDeclineInvite(invite.id)}
+                      style={declineButtonStyle}
+                    >
+                      Decline
+                    </button>
+                  </div>
                 </div>
-                <div style={inviteActionsStyle}>
-                  <button
-                    onClick={() => handleAcceptInvite(invite)}
-                    style={acceptButtonStyle}
-                  >
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => handleDeclineInvite(invite.id)}
-                    style={declineButtonStyle}
-                  >
-                    Decline
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : (
+            <p style={noInvitesStyle}>No pending invites</p>
+          )}
+        </div>
 
         {/* My matches section */}
         {myMatches.length > 0 && (
@@ -348,11 +399,30 @@ const dividerTextStyle = {
   position: 'relative',
 }
 
-const errorStyle = {
-  color: '#ff6b6b',
-  fontSize: '14px',
-  marginTop: '8px',
+const checkInvitesButtonStyle = {
+  width: '100%',
+  padding: '12px',
+  fontSize: '16px',
+  fontWeight: 'bold',
+  color: 'white',
+  backgroundColor: '#FF9800',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
   fontFamily: 'sans-serif',
+  marginBottom: '12px',
+}
+
+const invitesListStyle = {
+  marginTop: '8px',
+}
+
+const noInvitesStyle = {
+  color: '#666',
+  fontSize: '14px',
+  textAlign: 'center',
+  fontFamily: 'sans-serif',
+  marginTop: '8px',
 }
 
 const inviteCardStyle = {
