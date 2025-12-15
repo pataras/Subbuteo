@@ -1,9 +1,81 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import MatchService from '../services/MatchService'
 
 const DEFAULT_INVITE_EMAIL = 'Oli@taras.co.uk'
+
+// Dropdown button for starting games
+function StartGameDropdown({ onPracticeMatch, onStartMatch, disabled, isCreating }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handlePracticeClick = () => {
+    setIsOpen(false)
+    onPracticeMatch()
+  }
+
+  const handleStartMatchClick = () => {
+    setIsOpen(false)
+    onStartMatch()
+  }
+
+  return (
+    <div ref={dropdownRef} style={dropdownContainerStyle}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={disabled}
+        style={{
+          ...startGameDropdownButtonStyle,
+          opacity: disabled ? 0.5 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <span>Start Game</span>
+        <span style={{ marginLeft: '8px', fontSize: '12px' }}>{isOpen ? '▲' : '▼'}</span>
+      </button>
+      {isOpen && !disabled && (
+        <div style={dropdownMenuStyle}>
+          <button
+            onClick={handlePracticeClick}
+            style={dropdownItemStyle}
+          >
+            <span style={dropdownIconStyle}>🎯</span>
+            <div style={dropdownItemTextStyle}>
+              <span style={dropdownItemTitleStyle}>Practice Match</span>
+              <span style={dropdownItemDescStyle}>Solo practice, no time limit</span>
+            </div>
+          </button>
+          <button
+            onClick={handleStartMatchClick}
+            disabled={isCreating}
+            style={{
+              ...dropdownItemStyle,
+              opacity: isCreating ? 0.6 : 1,
+            }}
+          >
+            <span style={dropdownIconStyle}>⚔️</span>
+            <div style={dropdownItemTextStyle}>
+              <span style={dropdownItemTitleStyle}>{isCreating ? 'Creating...' : 'Multiplayer Match'}</span>
+              <span style={dropdownItemDescStyle}>Invite opponent via email</span>
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTeam, onBack, selectedTeam }) {
   const { currentUser } = useAuth()
@@ -13,6 +85,7 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
   const [isCheckingInvites, setIsCheckingInvites] = useState(false)
   const [pendingInvites, setPendingInvites] = useState([])
   const [myMatches, setMyMatches] = useState([])
+  const [showInviteSection, setShowInviteSection] = useState(false)
 
   // Fetch pending invites and my matches on mount
   useEffect(() => {
@@ -186,50 +259,50 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
           )}
         </div>
 
-        {/* Practice match section */}
+        {/* Start Game dropdown */}
         <div style={sectionStyle}>
-          <button
-            onClick={onPracticeMatch}
+          <StartGameDropdown
+            onPracticeMatch={onPracticeMatch}
+            onStartMatch={() => setShowInviteSection(true)}
             disabled={!selectedTeam}
-            style={{
-              ...practiceButtonStyle,
-              opacity: selectedTeam ? 1 : 0.5,
-              cursor: selectedTeam ? 'pointer' : 'not-allowed',
-            }}
-          >
-            Practice Match
-          </button>
-          <p style={practiceHintStyle}>
-            {selectedTeam ? 'Solo practice with your team, no time limit' : 'Select a team first'}
-          </p>
-        </div>
-
-        {/* Divider */}
-        <div style={dividerStyle}>
-          <span style={dividerTextStyle}>or</span>
-        </div>
-
-        {/* Create new match section */}
-        <div style={sectionStyle}>
-          <h2 style={sectionTitleStyle}>Invite Player</h2>
-          <p style={hintStyle}>Default: {DEFAULT_INVITE_EMAIL}</p>
-
-          <input
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="Enter opponent's email"
-            style={inputStyle}
+            isCreating={isCreating}
           />
-
-          <button
-            onClick={handleCreateMatch}
-            disabled={isCreating}
-            style={primaryButtonStyle}
-          >
-            {isCreating ? 'Creating...' : 'Start Match'}
-          </button>
+          {!selectedTeam && (
+            <p style={practiceHintStyle}>Select a team first</p>
+          )}
         </div>
+
+        {/* Invite section - shown when starting multiplayer */}
+        {showInviteSection && (
+          <div style={sectionStyle}>
+            <div style={inviteSectionHeaderStyle}>
+              <h2 style={sectionTitleStyle}>Invite Player</h2>
+              <button
+                onClick={() => setShowInviteSection(false)}
+                style={closeSectionButtonStyle}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={hintStyle}>Default: {DEFAULT_INVITE_EMAIL}</p>
+
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Enter opponent's email"
+              style={inputStyle}
+            />
+
+            <button
+              onClick={handleCreateMatch}
+              disabled={isCreating}
+              style={primaryButtonStyle}
+            >
+              {isCreating ? 'Creating...' : 'Send Invite'}
+            </button>
+          </div>
+        )}
 
         {/* Check for invites section - always visible */}
         <div style={sectionStyle}>
@@ -288,14 +361,12 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
                   >
                     {match.status === 'waiting' ? 'Waiting...' : 'Resume'}
                   </button>
-                  {match.status === 'waiting' && (
-                    <button
-                      onClick={() => handleCancelMatch(match.id)}
-                      style={removeButtonStyle}
-                    >
-                      Remove
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleCancelMatch(match.id)}
+                    style={removeButtonStyle}
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
             ))}
@@ -621,6 +692,97 @@ const selectTeamButtonStyle = {
   borderRadius: '8px',
   cursor: 'pointer',
   fontFamily: 'sans-serif',
+}
+
+// Dropdown styles
+const dropdownContainerStyle = {
+  position: 'relative',
+  width: '100%',
+}
+
+const startGameDropdownButtonStyle = {
+  width: '100%',
+  padding: '16px',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  color: 'white',
+  backgroundColor: '#4CAF50',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontFamily: 'sans-serif',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+
+const dropdownMenuStyle = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  right: 0,
+  marginTop: '4px',
+  backgroundColor: 'rgba(30, 30, 30, 0.98)',
+  borderRadius: '8px',
+  padding: '8px',
+  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+  border: '1px solid #444',
+  zIndex: 100,
+}
+
+const dropdownItemStyle = {
+  width: '100%',
+  padding: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  backgroundColor: 'transparent',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  textAlign: 'left',
+  transition: 'background-color 0.15s',
+}
+
+const dropdownIconStyle = {
+  fontSize: '20px',
+  flexShrink: 0,
+}
+
+const dropdownItemTextStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+}
+
+const dropdownItemTitleStyle = {
+  color: 'white',
+  fontSize: '14px',
+  fontWeight: 'bold',
+  fontFamily: 'sans-serif',
+}
+
+const dropdownItemDescStyle = {
+  color: '#888',
+  fontSize: '12px',
+  fontFamily: 'sans-serif',
+}
+
+const inviteSectionHeaderStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '8px',
+}
+
+const closeSectionButtonStyle = {
+  background: 'transparent',
+  border: 'none',
+  color: '#888',
+  fontSize: '18px',
+  cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: '4px',
 }
 
 export default MatchLobby

@@ -10,15 +10,21 @@
   --sat: env(safe-area-inset-top, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-  /* Bottom offset for controls - accounts for mobile browser chrome (address bar) */
-  /* Uses 70px minimum to clear typical mobile browser bottom bars */
-  --mobile-bottom-offset: max(70px, calc(env(safe-area-inset-bottom, 0px) + 70px));
+  /* Bottom offset for controls - simple fallback for Edge and older browsers */
+  --mobile-bottom-offset: 20px;
 }
 
-/* For devices that report actual safe area (newer iPhones, etc) */
+/* For browsers that support max() - use dynamic offset */
+@supports (bottom: max(20px, 20px)) {
+  :root {
+    --mobile-bottom-offset: max(20px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  }
+}
+
+/* For mobile browsers with larger safe areas (iPhones with home indicator, etc) */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   :root {
-    --mobile-bottom-offset: max(70px, calc(env(safe-area-inset-bottom) + 20px));
+    --mobile-bottom-offset: max(20px, calc(env(safe-area-inset-bottom) + 20px));
   }
 }
 
