@@ -311,6 +311,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   const [showSaveMenu, setShowSaveMenu] = useState(false)
   const [goalCelebration, setGoalCelebration] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showCameraControls, setShowCameraControls] = useState(false)
 
   // Camera control state - fixed viewpoint with zoom and pan
   const [cameraZoom, setCameraZoom] = useState(1.0) // -0.5 = closest, 2.0 = farthest
@@ -705,7 +706,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', minHeight: '-webkit-fill-available', background: '#1a1a2e', touchAction: 'none', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '85vh', minHeight: '-webkit-fill-available', background: '#1a1a2e', touchAction: 'none', overflow: 'hidden', position: 'relative' }}>
       <Canvas shadows>
         {/* Camera positioned behind the player looking at the ball */}
         <PerspectiveCamera
@@ -896,168 +897,222 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Camera controls - bottom left */}
+      {/* Left side controls - camera toggle, next/prev, and expandable camera controls */}
       {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
-          bottom: 'var(--mobile-bottom-offset, 20px)',
+          top: '55px',
           left: '10px',
           zIndex: 100,
           display: 'flex',
+          flexDirection: 'column',
           gap: '8px',
-          alignItems: 'flex-end',
-          maxWidth: 'calc(50vw - 20px)',
         }}>
-          {/* Zoom controls */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px'
-          }}>
+          {/* Top row: Camera toggle + next/prev buttons */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button
-              onClick={zoomIn}
-              disabled={cameraZoom <= -0.5}
-              title="Zoom in"
+              onClick={() => setShowCameraControls(!showCameraControls)}
+              title={showCameraControls ? 'Hide camera controls' : 'Show camera controls'}
               style={{
                 width: '36px',
                 height: '36px',
-                background: cameraZoom <= -0.5 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+                background: showCameraControls ? 'rgba(68, 136, 255, 0.8)' : 'rgba(255,255,255,0.15)',
                 border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: '6px',
-                color: cameraZoom <= -0.5 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: cameraZoom <= -0.5 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              +
-            </button>
-            <button
-              onClick={zoomOut}
-              disabled={cameraZoom >= 2}
-              title="Zoom out"
-              style={{
-                width: '36px',
-                height: '36px',
-                background: cameraZoom >= 2 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '6px',
-                color: cameraZoom >= 2 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
-                fontSize: '20px',
-                cursor: cameraZoom >= 2 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              −
-            </button>
-          </div>
-
-          {/* Pan controls - 3x3 grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 32px)',
-            gridTemplateRows: 'repeat(3, 32px)',
-            gap: '2px'
-          }}>
-            {/* Row 1: empty, up, empty */}
-            <div />
-            <button
-              onPointerDown={() => setPanDirection('up')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan up"
-              style={{
-                width: '32px',
-                height: '32px',
-                background: panDirection === 'up' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '4px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: '16px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
             >
-              ▲
+              {showCameraControls ? '📷' : '📷'}
             </button>
-            <div />
-
-            {/* Row 2: left, empty, right */}
             <button
-              onPointerDown={() => setPanDirection('left')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan left"
+              onClick={selectPreviousPlayer}
+              disabled={historyIndex === 0}
+              title="Previous player"
               style={{
-                width: '32px',
-                height: '32px',
-                background: panDirection === 'left' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '4px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                ...buttonStyle,
+                background: historyIndex === 0 ? '#666' : '#4488ff',
+                cursor: historyIndex === 0 ? 'not-allowed' : 'pointer'
               }}
             >
               ◀
             </button>
-            <div />
             <button
-              onPointerDown={() => setPanDirection('right')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan right"
-              style={{
-                width: '32px',
-                height: '32px',
-                background: panDirection === 'right' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '4px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              onClick={selectNextPlayer}
+              title="Next player"
+              style={buttonStyle}
             >
               ▶
             </button>
-
-            {/* Row 3: empty, down, empty */}
-            <div />
-            <button
-              onPointerDown={() => setPanDirection('down')}
-              onPointerUp={() => setPanDirection(null)}
-              onPointerLeave={() => setPanDirection(null)}
-              title="Pan down"
-              style={{
-                width: '32px',
-                height: '32px',
-                background: panDirection === 'down' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '4px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ▼
-            </button>
-            <div />
           </div>
+
+          {/* Expandable camera controls */}
+          {showCameraControls && (
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'flex-start',
+              background: 'rgba(0,0,0,0.6)',
+              padding: '8px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              {/* Zoom controls */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <button
+                  onClick={zoomIn}
+                  disabled={cameraZoom <= -0.5}
+                  title="Zoom in"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    background: cameraZoom <= -0.5 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '6px',
+                    color: cameraZoom <= -0.5 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+                    fontSize: '20px',
+                    cursor: cameraZoom <= -0.5 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  onClick={zoomOut}
+                  disabled={cameraZoom >= 2}
+                  title="Zoom out"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    background: cameraZoom >= 2 ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '6px',
+                    color: cameraZoom >= 2 ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)',
+                    fontSize: '20px',
+                    cursor: cameraZoom >= 2 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  −
+                </button>
+              </div>
+
+              {/* Pan controls - 3x3 grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 32px)',
+                gridTemplateRows: 'repeat(3, 32px)',
+                gap: '2px'
+              }}>
+                {/* Row 1: empty, up, empty */}
+                <div />
+                <button
+                  onPointerDown={() => setPanDirection('up')}
+                  onPointerUp={() => setPanDirection(null)}
+                  onPointerLeave={() => setPanDirection(null)}
+                  title="Pan up"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    background: panDirection === 'up' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ▲
+                </button>
+                <div />
+
+                {/* Row 2: left, empty, right */}
+                <button
+                  onPointerDown={() => setPanDirection('left')}
+                  onPointerUp={() => setPanDirection(null)}
+                  onPointerLeave={() => setPanDirection(null)}
+                  title="Pan left"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    background: panDirection === 'left' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ◀
+                </button>
+                <div />
+                <button
+                  onPointerDown={() => setPanDirection('right')}
+                  onPointerUp={() => setPanDirection(null)}
+                  onPointerLeave={() => setPanDirection(null)}
+                  title="Pan right"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    background: panDirection === 'right' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ▶
+                </button>
+
+                {/* Row 3: empty, down, empty */}
+                <div />
+                <button
+                  onPointerDown={() => setPanDirection('down')}
+                  onPointerUp={() => setPanDirection(null)}
+                  onPointerLeave={() => setPanDirection(null)}
+                  title="Pan down"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    background: panDirection === 'down' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '4px',
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ▼
+                </button>
+                <div />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1099,35 +1154,14 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Control buttons - bottom right */}
+      {/* Reset/Start button - bottom right */}
       {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
           bottom: 'var(--mobile-bottom-offset, 20px)',
           right: '10px',
-          display: 'flex',
-          gap: '6px',
           zIndex: 100
         }}>
-          <button
-            onClick={selectPreviousPlayer}
-            disabled={historyIndex === 0}
-            title="Previous player"
-            style={{
-              ...buttonStyle,
-              background: historyIndex === 0 ? '#666' : '#4488ff',
-              cursor: historyIndex === 0 ? 'not-allowed' : 'pointer'
-            }}
-          >
-            ◀
-          </button>
-          <button
-            onClick={selectNextPlayer}
-            title="Next player"
-            style={buttonStyle}
-          >
-            ▶
-          </button>
           <button
             onClick={gameStatus === 'positioning' ? handleDone : handleReset}
             title={gameStatus === 'positioning' ? 'Start game' : 'Reset game'}
@@ -1141,17 +1175,17 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         </div>
       )}
 
-      {/* Goal scorers panel */}
+      {/* Goal scorers panel - bottom left */}
       {goals.length > 0 && (
         <div style={{
           position: 'absolute',
-          top: '50px',
+          bottom: 'var(--mobile-bottom-offset, 20px)',
           left: '10px',
           background: 'rgba(0,0,0,0.8)',
           padding: '12px 16px',
           borderRadius: '8px',
           fontFamily: 'sans-serif',
-          maxHeight: '200px',
+          maxHeight: '150px',
           overflowY: 'auto',
           zIndex: 100,
           pointerEvents: 'none'
