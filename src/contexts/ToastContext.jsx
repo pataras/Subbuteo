@@ -12,6 +12,7 @@ export function useToast() {
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
+  const [errorLog, setErrorLog] = useState([])
 
   const addToast = useCallback((message, type = 'error', duration = 5000) => {
     const id = Date.now() + Math.random()
@@ -30,9 +31,23 @@ export function ToastProvider({ children }) {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }, [])
 
+  const logError = useCallback((message) => {
+    const entry = {
+      id: Date.now() + Math.random(),
+      message,
+      timestamp: new Date().toISOString(),
+    }
+    setErrorLog(prev => [entry, ...prev].slice(0, 100)) // Keep last 100 errors
+  }, [])
+
+  const clearErrorLog = useCallback(() => {
+    setErrorLog([])
+  }, [])
+
   const showError = useCallback((message, duration = 5000) => {
+    logError(message) // Also log the error
     return addToast(message, 'error', duration)
-  }, [addToast])
+  }, [addToast, logError])
 
   const showSuccess = useCallback((message, duration = 3000) => {
     return addToast(message, 'success', duration)
@@ -43,7 +58,7 @@ export function ToastProvider({ children }) {
   }, [addToast])
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast, showError, showSuccess, showInfo }}>
+    <ToastContext.Provider value={{ toasts, addToast, removeToast, showError, showSuccess, showInfo, errorLog, logError, clearErrorLog }}>
       {children}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </ToastContext.Provider>

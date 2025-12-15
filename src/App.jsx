@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { GameProvider } from './contexts/GameContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { MatchProvider, useMatch } from './contexts/MatchContext'
-import { ToastProvider } from './contexts/ToastContext'
+import { ToastProvider, useToast } from './contexts/ToastContext'
 import AuthScreen from './components/AuthScreen'
 import Game from './components/Game'
 import MatchLobby from './components/MatchLobby'
@@ -12,8 +12,64 @@ import TeamSelection from './components/TeamSelection'
 import PlayerSelection from './components/PlayerSelection'
 import AdminPanel from './components/admin/AdminPanel'
 
-function ProfileDropdown({ onAdminClick }) {
+function ErrorLogModal({ onClose }) {
+  const { errorLog, clearErrorLog } = useToast()
+  const modalRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [onClose])
+
+  const formatTimestamp = (isoString) => {
+    const date = new Date(isoString)
+    return date.toLocaleString()
+  }
+
+  const handleClear = () => {
+    clearErrorLog()
+  }
+
+  return (
+    <div style={errorLogOverlayStyle}>
+      <div ref={modalRef} style={errorLogModalStyle}>
+        <div style={errorLogHeaderStyle}>
+          <h2 style={errorLogTitleStyle}>Error Log</h2>
+          <button onClick={onClose} style={errorLogCloseButtonStyle}>✕</button>
+        </div>
+
+        {errorLog.length === 0 ? (
+          <div style={errorLogEmptyStyle}>No errors logged</div>
+        ) : (
+          <>
+            <div style={errorLogListStyle}>
+              {errorLog.map((entry) => (
+                <div key={entry.id} style={errorLogEntryStyle}>
+                  <div style={errorLogTimestampStyle}>{formatTimestamp(entry.timestamp)}</div>
+                  <div style={errorLogMessageStyle}>{entry.message}</div>
+                </div>
+              ))}
+            </div>
+            <div style={errorLogFooterStyle}>
+              <button onClick={handleClear} style={errorLogClearButtonStyle}>
+                Clear Log
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ProfileDropdown({ onAdminClick, onErrorLogClick }) {
   const { currentUser, logout, canAccessAdmin, userProfile } = useAuth()
+  const { errorLog } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -38,6 +94,11 @@ function ProfileDropdown({ onAdminClick }) {
   const handleAdminClick = () => {
     setIsOpen(false)
     onAdminClick()
+  }
+
+  const handleErrorLogClick = () => {
+    setIsOpen(false)
+    onErrorLogClick()
   }
 
   return (
@@ -76,6 +137,9 @@ function ProfileDropdown({ onAdminClick }) {
               Admin Panel
             </button>
           )}
+          <button onClick={handleErrorLogClick} style={errorLogButtonStyle}>
+            Error Log {errorLog.length > 0 && <span style={errorCountBadgeStyle}>{errorLog.length}</span>}
+          </button>
           <button onClick={logout} style={signOutButtonStyle}>
             Sign Out
           </button>
@@ -95,6 +159,7 @@ function AppContent() {
   const [isPracticeMode, setIsPracticeMode] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [selectedPlayers, setSelectedPlayers] = useState([])
+  const [showErrorLog, setShowErrorLog] = useState(false)
 
   if (!currentUser) {
     return <AuthScreen />
@@ -102,6 +167,10 @@ function AppContent() {
 
   const handleAdminClick = () => {
     setScreen('admin')
+  }
+
+  const handleErrorLogClick = () => {
+    setShowErrorLog(true)
   }
 
   const handleMatchCreated = (matchId, matchData) => {
@@ -173,7 +242,8 @@ function AppContent() {
       <MatchProvider>
         <GameProvider>
           <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-            {screen !== 'admin' && <ProfileDropdown onAdminClick={handleAdminClick} />}
+            {screen !== 'admin' && <ProfileDropdown onAdminClick={handleAdminClick} onErrorLogClick={handleErrorLogClick} />}
+            {showErrorLog && <ErrorLogModal onClose={() => setShowErrorLog(false)} />}
 
             {screen === 'lobby' && (
               <MatchLobby
@@ -344,6 +414,36 @@ const adminButtonStyle = {
   fontFamily: 'sans-serif',
 }
 
+const errorLogButtonStyle = {
+  width: '100%',
+  padding: '8px 12px',
+  fontSize: '14px',
+  color: 'white',
+  backgroundColor: 'transparent',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontFamily: 'sans-serif',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+}
+
+const errorCountBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '18px',
+  height: '18px',
+  padding: '0 5px',
+  fontSize: '11px',
+  fontWeight: 'bold',
+  backgroundColor: '#e74c3c',
+  color: 'white',
+  borderRadius: '9px',
+}
+
 const adminBadgeStyle = {
   display: 'inline-block',
   marginLeft: '8px',
@@ -366,6 +466,110 @@ const organiserBadgeStyle = {
   color: 'white',
   borderRadius: '4px',
   textTransform: 'uppercase',
+}
+
+const errorLogOverlayStyle = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 2000,
+}
+
+const errorLogModalStyle = {
+  backgroundColor: '#1a1a2e',
+  borderRadius: '12px',
+  width: '90%',
+  maxWidth: '600px',
+  maxHeight: '80vh',
+  display: 'flex',
+  flexDirection: 'column',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+  border: '1px solid #333',
+}
+
+const errorLogHeaderStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '16px 20px',
+  borderBottom: '1px solid #333',
+}
+
+const errorLogTitleStyle = {
+  margin: 0,
+  color: 'white',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  fontFamily: 'sans-serif',
+}
+
+const errorLogCloseButtonStyle = {
+  background: 'transparent',
+  border: 'none',
+  color: '#aaa',
+  fontSize: '20px',
+  cursor: 'pointer',
+  padding: '4px 8px',
+}
+
+const errorLogEmptyStyle = {
+  padding: '40px 20px',
+  textAlign: 'center',
+  color: '#888',
+  fontSize: '14px',
+  fontFamily: 'sans-serif',
+}
+
+const errorLogListStyle = {
+  flex: 1,
+  overflowY: 'auto',
+  padding: '12px 20px',
+}
+
+const errorLogEntryStyle = {
+  padding: '12px',
+  backgroundColor: 'rgba(220, 53, 69, 0.1)',
+  borderRadius: '8px',
+  marginBottom: '8px',
+  borderLeft: '3px solid #e74c3c',
+}
+
+const errorLogTimestampStyle = {
+  fontSize: '11px',
+  color: '#888',
+  marginBottom: '4px',
+  fontFamily: 'sans-serif',
+}
+
+const errorLogMessageStyle = {
+  fontSize: '13px',
+  color: '#eee',
+  fontFamily: 'sans-serif',
+  wordBreak: 'break-word',
+}
+
+const errorLogFooterStyle = {
+  padding: '12px 20px',
+  borderTop: '1px solid #333',
+  display: 'flex',
+  justifyContent: 'flex-end',
+}
+
+const errorLogClearButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '13px',
+  color: 'white',
+  backgroundColor: '#e74c3c',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontFamily: 'sans-serif',
 }
 
 function App() {
