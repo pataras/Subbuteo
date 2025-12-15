@@ -181,9 +181,9 @@ export const MatchService = {
         return { success: false, error: 'Only the match creator can cancel this invite' }
       }
 
-      // Validate match is in waiting status
-      if (matchData.status !== 'waiting') {
-        return { success: false, error: 'Can only cancel invites that are waiting for acceptance' }
+      // Validate match is in a cancellable state (not already completed or cancelled)
+      if (matchData.status === 'completed' || matchData.status === 'cancelled') {
+        return { success: false, error: 'Cannot cancel a match that is already completed or cancelled' }
       }
 
       await updateDoc(matchRef, {

@@ -195,9 +195,13 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
 
   const handleDeclineInvite = async (matchId) => {
     try {
-      await MatchService.declineMatch(matchId)
-      showInfo('Invite declined')
-      loadData()
+      const result = await MatchService.declineMatch(matchId)
+      if (result.success) {
+        showInfo('Invite declined')
+        loadData()
+      } else {
+        showError(result.error || 'Failed to decline invite')
+      }
     } catch (error) {
       showError('Error declining invite: ' + error.message)
     }
