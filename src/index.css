@@ -4,9 +4,29 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Safe area insets for mobile browsers with address bars and notches */
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  /* Bottom offset for controls - accounts for mobile browser chrome (address bar) */
+  /* Uses 70px minimum to clear typical mobile browser bottom bars */
+  --mobile-bottom-offset: max(70px, calc(env(safe-area-inset-bottom, 0px) + 70px));
+}
+
+/* For devices that report actual safe area (newer iPhones, etc) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  :root {
+    --mobile-bottom-offset: max(70px, calc(env(safe-area-inset-bottom) + 20px));
+  }
+}
+
 html, body, #root {
   width: 100%;
-  height: 100%;
+  /* Use dvh (dynamic viewport height) with vh fallback for older browsers */
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
