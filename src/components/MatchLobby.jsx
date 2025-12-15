@@ -138,6 +138,20 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
     }
   }
 
+  const handleCancelMatch = async (matchId) => {
+    try {
+      const result = await MatchService.cancelMatch(matchId, currentUser.uid)
+      if (result.success) {
+        showInfo('Match invite cancelled')
+        loadData()
+      } else {
+        showError(result.error || 'Failed to cancel match invite')
+      }
+    } catch (error) {
+      showError('Error cancelling match: ' + error.message)
+    }
+  }
+
   return (
     <div style={containerStyle}>
       <div style={panelStyle}>
@@ -267,12 +281,22 @@ function MatchLobby({ onMatchCreated, onMatchAccepted, onPracticeMatch, onEditTe
                   <span>vs {match.invitedEmail}</span>
                   <span style={statusBadgeStyle(match.status)}>{match.status}</span>
                 </div>
-                <button
-                  onClick={() => handleResumeMatch(match)}
-                  style={resumeButtonStyle}
-                >
-                  {match.status === 'waiting' ? 'Waiting...' : 'Resume'}
-                </button>
+                <div style={matchActionsStyle}>
+                  <button
+                    onClick={() => handleResumeMatch(match)}
+                    style={resumeButtonStyle}
+                  >
+                    {match.status === 'waiting' ? 'Waiting...' : 'Resume'}
+                  </button>
+                  {match.status === 'waiting' && (
+                    <button
+                      onClick={() => handleCancelMatch(match.id)}
+                      style={removeButtonStyle}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -498,11 +522,27 @@ const statusBadgeStyle = (status) => ({
   fontFamily: 'sans-serif',
 })
 
+const matchActionsStyle = {
+  display: 'flex',
+  gap: '8px',
+}
+
 const resumeButtonStyle = {
   padding: '8px 16px',
   fontSize: '14px',
   color: 'white',
   backgroundColor: '#2196F3',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'sans-serif',
+}
+
+const removeButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '14px',
+  color: 'white',
+  backgroundColor: '#f44336',
   border: 'none',
   borderRadius: '4px',
   cursor: 'pointer',
