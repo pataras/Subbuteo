@@ -11,6 +11,13 @@ import WaitingRoom from './components/WaitingRoom'
 import TeamSelection from './components/TeamSelection'
 import PlayerSelection from './components/PlayerSelection'
 import AdminPanel from './components/admin/AdminPanel'
+import { getTeamById } from './data/teams'
+
+// LocalStorage keys for persisting team selection
+const STORAGE_KEYS = {
+  SELECTED_TEAM_ID: 'subbuteo_selected_team_id',
+  SELECTED_PLAYER_NUMBERS: 'subbuteo_selected_player_numbers',
+}
 
 function ErrorLogModal({ onClose }) {
   const { errorLog, clearErrorLog } = useToast()
@@ -161,6 +168,38 @@ function AppContent() {
   const [selectedPlayers, setSelectedPlayers] = useState([])
   const [showErrorLog, setShowErrorLog] = useState(false)
 
+  // Load saved team and squad selection from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedTeamId = localStorage.getItem(STORAGE_KEYS.SELECTED_TEAM_ID)
+      const savedPlayerNumbers = localStorage.getItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS)
+
+      if (savedTeamId) {
+        const team = getTeamById(savedTeamId)
+        if (team) {
+          if (savedPlayerNumbers) {
+            const playerNumbers = JSON.parse(savedPlayerNumbers)
+            const players = playerNumbers
+              .map(num => team.players.find(p => p.number === num))
+              .filter(Boolean)
+
+            if (players.length === 6) {
+              setSelectedTeam({ ...team, selectedPlayers: players })
+              setSelectedPlayers(players)
+            } else {
+              // Invalid saved players, just set the team
+              setSelectedTeam(team)
+            }
+          } else {
+            setSelectedTeam(team)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved team selection:', error)
+    }
+  }, [])
+
   if (!currentUser) {
     return <AuthScreen />
   }
@@ -220,12 +259,27 @@ function AppContent() {
 
   const handleTeamSelected = (team) => {
     setSelectedTeam(team)
+    // Save team ID to localStorage
+    try {
+      localStorage.setItem(STORAGE_KEYS.SELECTED_TEAM_ID, team.id)
+      // Clear previous player selection when changing teams
+      localStorage.removeItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS)
+    } catch (error) {
+      console.error('Error saving team selection:', error)
+    }
     setScreen('player-select')
   }
 
   const handlePlayersSelected = (team, players) => {
     setSelectedTeam({ ...team, selectedPlayers: players })
     setSelectedPlayers(players)
+    // Save player numbers to localStorage
+    try {
+      const playerNumbers = players.map(p => p.number)
+      localStorage.setItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS, JSON.stringify(playerNumbers))
+    } catch (error) {
+      console.error('Error saving player selection:', error)
+    }
     setScreen('lobby')
   }
 
