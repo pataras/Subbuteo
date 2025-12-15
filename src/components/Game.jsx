@@ -705,7 +705,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e', touchAction: 'none' }}>
+    <div style={{ width: '100vw', height: '100dvh', background: '#1a1a2e', touchAction: 'none' }}>
       <Canvas shadows>
         {/* Camera positioned behind the player looking at the ball */}
         <PerspectiveCamera
@@ -900,7 +900,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: 'var(--mobile-bottom-offset, 20px)',
           left: '20px',
           zIndex: 100,
           display: 'flex',
@@ -1102,7 +1102,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       {gameStatus !== 'completed' && gameStatus !== 'coin_toss' && (
         <div style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: 'var(--mobile-bottom-offset, 20px)',
           right: '20px',
           display: 'flex',
           gap: '8px',
