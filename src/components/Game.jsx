@@ -1497,7 +1497,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         pointerEvents: 'none',
         zIndex: 50
       }}>
-        v0.1
+        v0.2
       </div>
     </div>
   )
