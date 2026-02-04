@@ -1359,6 +1359,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
             onPointerDown={() => { setActiveButton('forward'); movePlayer('forward'); }}
             onPointerUp={() => setActiveButton(null)}
             onPointerLeave={() => setActiveButton(null)}
+            onTouchStart={(e) => { e.preventDefault(); setActiveButton('forward'); movePlayer('forward'); }}
+            onTouchEnd={(e) => { e.preventDefault(); setActiveButton(null); }}
             style={{
               width: '56px',
               height: '56px',
@@ -1372,7 +1374,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               alignItems: 'center',
               justifyContent: 'center',
               touchAction: 'none',
-              userSelect: 'none'
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
             ▲
@@ -1384,6 +1387,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               onPointerDown={() => { setActiveButton('left'); movePlayer('left'); }}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
+              onTouchStart={(e) => { e.preventDefault(); setActiveButton('left'); movePlayer('left'); }}
+              onTouchEnd={(e) => { e.preventDefault(); setActiveButton(null); }}
               style={{
                 width: '56px',
                 height: '56px',
@@ -1397,7 +1402,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 alignItems: 'center',
                 justifyContent: 'center',
                 touchAction: 'none',
-                userSelect: 'none'
+                userSelect: 'none',
+                WebkitTapHighlightColor: 'transparent'
               }}
             >
               ◀
@@ -1406,6 +1412,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               onPointerDown={() => { setActiveButton('backward'); movePlayer('backward'); }}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
+              onTouchStart={(e) => { e.preventDefault(); setActiveButton('backward'); movePlayer('backward'); }}
+              onTouchEnd={(e) => { e.preventDefault(); setActiveButton(null); }}
               style={{
                 width: '56px',
                 height: '56px',
@@ -1419,7 +1427,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 alignItems: 'center',
                 justifyContent: 'center',
                 touchAction: 'none',
-                userSelect: 'none'
+                userSelect: 'none',
+                WebkitTapHighlightColor: 'transparent'
               }}
             >
               ▼
@@ -1428,6 +1437,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               onPointerDown={() => { setActiveButton('right'); movePlayer('right'); }}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
+              onTouchStart={(e) => { e.preventDefault(); setActiveButton('right'); movePlayer('right'); }}
+              onTouchEnd={(e) => { e.preventDefault(); setActiveButton(null); }}
               style={{
                 width: '56px',
                 height: '56px',
@@ -1441,7 +1452,8 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 alignItems: 'center',
                 justifyContent: 'center',
                 touchAction: 'none',
-                userSelect: 'none'
+                userSelect: 'none',
+                WebkitTapHighlightColor: 'transparent'
               }}
             >
               ▶
