@@ -234,24 +234,26 @@ function Scene({ onDraggingChange, onActionStateChange, isInMotion, activePlayer
       {/* Physics world */}
       <Physics gravity={[0, -9.81, 0]} debug={false}>
         <Pitch standVisibility={standVisibility} />
-        {/* Home team players */}
+        {/* Home team players - facing towards negative Z (opponent's goal) */}
         {homePlayers.map((player, index) => (
           <Player
             key={`home-${index}`}
             ref={playerRefs.current[index]}
             position={player.position || DEFAULT_HOME_POSITIONS[index]}
+            rotation={[0, Math.PI, 0]}
             color={homeTeam?.kit?.primary || LEGACY_ASTON_VILLA.color}
             kit={homeTeam?.kit}
             number={player.number}
             name={player.name}
           />
         ))}
-        {/* Away team players */}
+        {/* Away team players - facing towards positive Z (opponent's goal) */}
         {awayPlayers.map((player, index) => (
           <Player
             key={`away-${index}`}
             ref={prestonRefs.current[index]}
             position={player.position || DEFAULT_AWAY_POSITIONS[index]}
+            rotation={[0, 0, 0]}
             color={awayTeam?.kit?.primary || LEGACY_PRESTON.color}
             kit={awayTeam?.kit}
             number={player.number}
@@ -312,6 +314,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   const [goalCelebration, setGoalCelebration] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showCameraControls, setShowCameraControls] = useState(false)
+  const [activeButton, setActiveButton] = useState(null) // Track which control button is being pressed
 
   // Camera control state - fixed viewpoint with zoom and pan
   const [cameraZoom, setCameraZoom] = useState(1.0) // -0.5 = closest, 2.0 = farthest
@@ -650,6 +653,47 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
   const zoomOut = useCallback(() => {
     setCameraZoom(z => Math.min(2, z + 0.25))
   }, [])
+
+  // Move player in a direction using impulse
+  const movePlayer = useCallback((direction) => {
+    const activeRef = myTeamRefs.current[activePlayerIndex]
+    if (!activeRef?.current || isInMotion) return
+
+    // Check if it's my turn (in practice mode, player controls both teams)
+    const isMyTurn = isPractice || currentTurn === myTeam
+    if (!isMyTurn) return
+
+    const forceMagnitude = 0.015 // Consistent force for button controls
+
+    // Direction mapping - forward is towards opponent's goal
+    // For home team (positive Z spawn), forward is negative Z
+    // For away team (negative Z spawn), forward is positive Z
+    const forwardDir = isHomePlayer ? -1 : 1
+
+    let impulse = { x: 0, y: 0, z: 0 }
+
+    switch (direction) {
+      case 'forward':
+        impulse.z = forwardDir * forceMagnitude
+        break
+      case 'backward':
+        impulse.z = -forwardDir * forceMagnitude
+        break
+      case 'left':
+        impulse.x = -forceMagnitude
+        break
+      case 'right':
+        impulse.x = forceMagnitude
+        break
+    }
+
+    activeRef.current.applyImpulse(impulse, true)
+
+    // Record the ball hit (player has been moved)
+    if (recordBallHit) {
+      recordBallHit(myTeam, activePlayerIndex)
+    }
+  }, [myTeamRefs, activePlayerIndex, isInMotion, isPractice, currentTurn, myTeam, isHomePlayer, recordBallHit])
 
   // Handle camera position changes for stand visibility
   const handleCameraPositionChange = useCallback((camX, camZ) => {
@@ -1295,6 +1339,114 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* On-screen control buttons - upside down T arrangement */}
+      {(gameStatus === 'kick_off' || gameStatus === 'in_progress') && !isInMotion && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {/* Forward button (top) */}
+          <button
+            onPointerDown={() => { setActiveButton('forward'); movePlayer('forward'); }}
+            onPointerUp={() => setActiveButton(null)}
+            onPointerLeave={() => setActiveButton(null)}
+            style={{
+              width: '56px',
+              height: '56px',
+              background: activeButton === 'forward' ? 'rgba(68, 200, 68, 0.9)' : 'rgba(68, 136, 255, 0.85)',
+              border: '2px solid rgba(255,255,255,0.5)',
+              borderRadius: '12px',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              touchAction: 'none',
+              userSelect: 'none'
+            }}
+          >
+            ▲
+          </button>
+
+          {/* Bottom row: Left, Back, Right */}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              onPointerDown={() => { setActiveButton('left'); movePlayer('left'); }}
+              onPointerUp={() => setActiveButton(null)}
+              onPointerLeave={() => setActiveButton(null)}
+              style={{
+                width: '56px',
+                height: '56px',
+                background: activeButton === 'left' ? 'rgba(68, 200, 68, 0.9)' : 'rgba(68, 136, 255, 0.85)',
+                border: '2px solid rgba(255,255,255,0.5)',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                touchAction: 'none',
+                userSelect: 'none'
+              }}
+            >
+              ◀
+            </button>
+            <button
+              onPointerDown={() => { setActiveButton('backward'); movePlayer('backward'); }}
+              onPointerUp={() => setActiveButton(null)}
+              onPointerLeave={() => setActiveButton(null)}
+              style={{
+                width: '56px',
+                height: '56px',
+                background: activeButton === 'backward' ? 'rgba(68, 200, 68, 0.9)' : 'rgba(68, 136, 255, 0.85)',
+                border: '2px solid rgba(255,255,255,0.5)',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                touchAction: 'none',
+                userSelect: 'none'
+              }}
+            >
+              ▼
+            </button>
+            <button
+              onPointerDown={() => { setActiveButton('right'); movePlayer('right'); }}
+              onPointerUp={() => setActiveButton(null)}
+              onPointerLeave={() => setActiveButton(null)}
+              style={{
+                width: '56px',
+                height: '56px',
+                background: activeButton === 'right' ? 'rgba(68, 200, 68, 0.9)' : 'rgba(68, 136, 255, 0.85)',
+                border: '2px solid rgba(255,255,255,0.5)',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                touchAction: 'none',
+                userSelect: 'none'
+              }}
+            >
+              ▶
+            </button>
+          </div>
         </div>
       )}
 
