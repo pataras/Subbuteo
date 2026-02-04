@@ -7,6 +7,7 @@ import { useSettings } from '../contexts/SettingsContext'
 // Subbuteo-style player figure with kit customization support
 const Player = forwardRef(function Player({
   position = [0, 0, 0],
+  rotation = [0, 0, 0],  // Y rotation to face the goal
   color = '#ff0000',
   number,
   name,
@@ -68,6 +69,7 @@ const Player = forwardRef(function Player({
       ref={ref}
       type="dynamic"
       position={position}
+      rotation={rotation}
       colliders={false}
       restitution={restitution}
       friction={friction}
