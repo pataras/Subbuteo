@@ -665,6 +665,17 @@ function HUD({ keysRef, speedRef }) {
     window.location.href = window.location.pathname + '?refresh=' + Date.now()
   }
 
+  // Touch button handlers
+  const handleTouchStart = (key) => (e) => {
+    e.preventDefault()
+    keysRef.current[key] = true
+  }
+
+  const handleTouchEnd = (key) => (e) => {
+    e.preventDefault()
+    keysRef.current[key] = false
+  }
+
   return (
     <div style={hudStyle}>
       {/* Hard Refresh Button */}
@@ -685,6 +696,56 @@ function HUD({ keysRef, speedRef }) {
         </div>
         <div style={controlItemStyle}>
           <span style={keyStyle}>→</span> Turn Right
+        </div>
+      </div>
+
+      {/* On-screen touch controls - inverted T layout */}
+      <div style={touchControlsContainer}>
+        {/* Top row - Up button */}
+        <div style={touchControlsTopRow}>
+          <button
+            style={touchButtonStyle}
+            onTouchStart={handleTouchStart('up')}
+            onTouchEnd={handleTouchEnd('up')}
+            onMouseDown={handleTouchStart('up')}
+            onMouseUp={handleTouchEnd('up')}
+            onMouseLeave={handleTouchEnd('up')}
+          >
+            ↑
+          </button>
+        </div>
+        {/* Bottom row - Left, Down, Right buttons */}
+        <div style={touchControlsBottomRow}>
+          <button
+            style={touchButtonStyle}
+            onTouchStart={handleTouchStart('left')}
+            onTouchEnd={handleTouchEnd('left')}
+            onMouseDown={handleTouchStart('left')}
+            onMouseUp={handleTouchEnd('left')}
+            onMouseLeave={handleTouchEnd('left')}
+          >
+            ←
+          </button>
+          <button
+            style={touchButtonStyle}
+            onTouchStart={handleTouchStart('down')}
+            onTouchEnd={handleTouchEnd('down')}
+            onMouseDown={handleTouchStart('down')}
+            onMouseUp={handleTouchEnd('down')}
+            onMouseLeave={handleTouchEnd('down')}
+          >
+            ↓
+          </button>
+          <button
+            style={touchButtonStyle}
+            onTouchStart={handleTouchStart('right')}
+            onTouchEnd={handleTouchEnd('right')}
+            onMouseDown={handleTouchStart('right')}
+            onMouseUp={handleTouchEnd('right')}
+            onMouseLeave={handleTouchEnd('right')}
+          >
+            →
+          </button>
         </div>
       </div>
 
@@ -861,6 +922,45 @@ const refreshButtonStyle = {
   cursor: 'pointer',
   pointerEvents: 'auto',
   transition: 'all 0.2s',
+}
+
+const touchControlsContainer = {
+  position: 'absolute',
+  bottom: '30px',
+  left: '30px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '5px',
+  pointerEvents: 'auto',
+}
+
+const touchControlsTopRow = {
+  display: 'flex',
+  justifyContent: 'center',
+}
+
+const touchControlsBottomRow = {
+  display: 'flex',
+  gap: '5px',
+}
+
+const touchButtonStyle = {
+  width: '60px',
+  height: '60px',
+  fontSize: '24px',
+  fontWeight: 'bold',
+  color: 'white',
+  background: 'rgba(0, 0, 0, 0.7)',
+  border: '2px solid rgba(255, 255, 255, 0.3)',
+  borderRadius: '12px',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  touchAction: 'manipulation',
 }
 
 export default App
