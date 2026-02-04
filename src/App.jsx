@@ -1,639 +1,831 @@
-import { useState, useRef, useEffect } from 'react'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { GameProvider } from './contexts/GameContext'
-import { SettingsProvider } from './contexts/SettingsContext'
-import { MatchProvider, useMatch } from './contexts/MatchContext'
-import { ToastProvider, useToast } from './contexts/ToastContext'
-import AuthScreen from './components/AuthScreen'
-import Game from './components/Game'
-import MatchLobby from './components/MatchLobby'
-import WaitingRoom from './components/WaitingRoom'
-import TeamSelection from './components/TeamSelection'
-import PlayerSelection from './components/PlayerSelection'
-import AdminPanel from './components/admin/AdminPanel'
-import { getTeamById } from './data/teams'
+import { useRef, useEffect, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Sky } from '@react-three/drei'
+import * as THREE from 'three'
 
-// LocalStorage keys for persisting team selection
-const STORAGE_KEYS = {
-  SELECTED_TEAM_ID: 'subbuteo_selected_team_id',
-  SELECTED_PLAYER_NUMBERS: 'subbuteo_selected_player_numbers',
+// ===========================================
+// PITCH DIMENSIONS (FIFA Standard in meters)
+// ===========================================
+const PITCH = {
+  length: 105,           // Goal line to goal line
+  width: 68,             // Touchline to touchline
+  lineWidth: 0.12,       // 12cm white lines
+  centerCircleRadius: 9.15,
+  penaltyAreaLength: 16.5,
+  penaltyAreaWidth: 40.32,  // 16.5m from each post (7.32m goal + 16.5*2)
+  goalAreaLength: 5.5,
+  goalAreaWidth: 18.32,     // 5.5m from each post (7.32m goal + 5.5*2)
+  penaltySpotDistance: 11,
+  penaltyArcRadius: 9.15,
+  cornerArcRadius: 1,
+  goalWidth: 7.32,
+  goalHeight: 2.44,
+  goalDepth: 2.5,
+  boundaryDistance: 4,    // Distance from pitch to boundary fence
+  stripeWidth: 5.25,      // Width of grass stripes (105/20 = 5.25m for 20 stripes)
 }
 
-function ErrorLogModal({ onClose }) {
-  const { errorLog, clearErrorLog } = useToast()
-  const modalRef = useRef(null)
+// ===========================================
+// PLAYER PHYSICS (Elite Footballer)
+// ===========================================
+const PLAYER = {
+  maxSpeed: 9.7,          // ~35 km/h top speed
+  acceleration: 2.8,      // 0 to top speed in ~3.5 seconds
+  deceleration: 5.0,      // Can brake faster than accelerate
+  naturalDeceleration: 1.5, // Slowing down when not pressing forward
+  turnSpeedBase: 3.0,     // Base turn speed in radians/sec
+  turnSpeedMin: 0.8,      // Minimum turn speed at max velocity
+  eyeHeight: 1.75,        // Camera height (player's eyes)
+}
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        onClose()
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [onClose])
+// ===========================================
+// GRASS STRIPE COMPONENT
+// ===========================================
+function GrassField() {
+  const stripeCount = 20
+  const stripeWidth = PITCH.length / stripeCount
 
-  const formatTimestamp = (isoString) => {
-    const date = new Date(isoString)
-    return date.toLocaleString()
-  }
+  return (
+    <group>
+      {/* Base grass layer */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+        <planeGeometry args={[PITCH.length + PITCH.boundaryDistance * 2 + 10, PITCH.width + PITCH.boundaryDistance * 2 + 10]} />
+        <meshStandardMaterial color="#2d5a27" />
+      </mesh>
 
-  const handleClear = () => {
-    clearErrorLog()
+      {/* Alternating grass stripes */}
+      {Array.from({ length: stripeCount }).map((_, i) => {
+        const isLight = i % 2 === 0
+        const xPos = -PITCH.length / 2 + stripeWidth / 2 + i * stripeWidth
+        return (
+          <mesh
+            key={i}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[xPos, 0, 0]}
+            receiveShadow
+          >
+            <planeGeometry args={[stripeWidth, PITCH.width]} />
+            <meshStandardMaterial color={isLight ? '#3a7a33' : '#2d5a27'} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
+// ===========================================
+// PITCH LINE COMPONENT
+// ===========================================
+function PitchLine({ points, width = PITCH.lineWidth }) {
+  const shape = new THREE.Shape()
+
+  if (points.length < 2) return null
+
+  // Create a path from points
+  shape.moveTo(points[0][0], points[0][1])
+  for (let i = 1; i < points.length; i++) {
+    shape.lineTo(points[i][0], points[i][1])
   }
 
   return (
-    <div style={errorLogOverlayStyle}>
-      <div ref={modalRef} style={errorLogModalStyle}>
-        <div style={errorLogHeaderStyle}>
-          <h2 style={errorLogTitleStyle}>Error Log</h2>
-          <button onClick={onClose} style={errorLogCloseButtonStyle}>✕</button>
-        </div>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+      <shapeGeometry args={[shape]} />
+      <meshStandardMaterial color="white" />
+    </mesh>
+  )
+}
 
-        {errorLog.length === 0 ? (
-          <div style={errorLogEmptyStyle}>No errors logged</div>
-        ) : (
-          <>
-            <div style={errorLogListStyle}>
-              {errorLog.map((entry) => (
-                <div key={entry.id} style={errorLogEntryStyle}>
-                  <div style={errorLogTimestampStyle}>{formatTimestamp(entry.timestamp)}</div>
-                  <div style={errorLogMessageStyle}>{entry.message}</div>
-                </div>
-              ))}
-            </div>
-            <div style={errorLogFooterStyle}>
-              <button onClick={handleClear} style={errorLogClearButtonStyle}>
-                Clear Log
-              </button>
-            </div>
-          </>
-        )}
+// Rectangle line helper
+function RectangleLine({ x, z, width, height, lineWidth = PITCH.lineWidth }) {
+  return (
+    <group position={[x, 0.01, z]}>
+      {/* Top */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -height/2]}>
+        <planeGeometry args={[width, lineWidth]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      {/* Bottom */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, height/2]}>
+        <planeGeometry args={[width, lineWidth]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      {/* Left */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-width/2, 0, 0]}>
+        <planeGeometry args={[lineWidth, height]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      {/* Right */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[width/2, 0, 0]}>
+        <planeGeometry args={[lineWidth, height]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+    </group>
+  )
+}
+
+// Circle/Arc line helper
+function CircleLine({ x, z, radius, lineWidth = PITCH.lineWidth, startAngle = 0, endAngle = Math.PI * 2, segments = 64 }) {
+  const points = []
+  const innerRadius = radius - lineWidth / 2
+  const outerRadius = radius + lineWidth / 2
+
+  // Create outer arc
+  for (let i = 0; i <= segments; i++) {
+    const angle = startAngle + (endAngle - startAngle) * (i / segments)
+    points.push(new THREE.Vector3(
+      Math.cos(angle) * outerRadius,
+      0,
+      Math.sin(angle) * outerRadius
+    ))
+  }
+
+  // Create inner arc (reverse direction)
+  for (let i = segments; i >= 0; i--) {
+    const angle = startAngle + (endAngle - startAngle) * (i / segments)
+    points.push(new THREE.Vector3(
+      Math.cos(angle) * innerRadius,
+      0,
+      Math.sin(angle) * innerRadius
+    ))
+  }
+
+  const shape = new THREE.Shape()
+  shape.moveTo(points[0].x, points[0].z)
+  for (let i = 1; i < points.length; i++) {
+    shape.lineTo(points[i].x, points[i].z)
+  }
+  shape.closePath()
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.01, z]}>
+      <shapeGeometry args={[shape]} />
+      <meshStandardMaterial color="white" />
+    </mesh>
+  )
+}
+
+// ===========================================
+// PITCH MARKINGS
+// ===========================================
+function PitchMarkings() {
+  const halfLength = PITCH.length / 2
+  const halfWidth = PITCH.width / 2
+
+  return (
+    <group>
+      {/* Outer boundary (touchlines and goal lines) */}
+      <RectangleLine x={0} z={0} width={PITCH.length} height={PITCH.width} />
+
+      {/* Halfway line */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <planeGeometry args={[PITCH.lineWidth, PITCH.width]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+
+      {/* Center circle */}
+      <CircleLine x={0} z={0} radius={PITCH.centerCircleRadius} />
+
+      {/* Center spot */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[0.2, 32]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+
+      {/* Left penalty area */}
+      <group position={[-halfLength, 0, 0]}>
+        {/* Penalty area box */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, 0]}>
+          <planeGeometry args={[PITCH.lineWidth, PITCH.penaltyAreaWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, -PITCH.penaltyAreaWidth/2]}>
+          <planeGeometry args={[PITCH.penaltyAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, PITCH.penaltyAreaWidth/2]}>
+          <planeGeometry args={[PITCH.penaltyAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Goal area box */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, 0]}>
+          <planeGeometry args={[PITCH.lineWidth, PITCH.goalAreaWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, -PITCH.goalAreaWidth/2]}>
+          <planeGeometry args={[PITCH.goalAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, PITCH.goalAreaWidth/2]}>
+          <planeGeometry args={[PITCH.goalAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Penalty spot */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltySpotDistance, 0.01, 0]}>
+          <circleGeometry args={[0.2, 32]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Penalty arc */}
+        <CircleLine
+          x={PITCH.penaltySpotDistance}
+          z={0}
+          radius={PITCH.penaltyArcRadius}
+          startAngle={-Math.acos((PITCH.penaltyAreaLength - PITCH.penaltySpotDistance) / PITCH.penaltyArcRadius)}
+          endAngle={Math.acos((PITCH.penaltyAreaLength - PITCH.penaltySpotDistance) / PITCH.penaltyArcRadius)}
+        />
+      </group>
+
+      {/* Right penalty area */}
+      <group position={[halfLength, 0, 0]} rotation={[0, Math.PI, 0]}>
+        {/* Penalty area box */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, 0]}>
+          <planeGeometry args={[PITCH.lineWidth, PITCH.penaltyAreaWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, -PITCH.penaltyAreaWidth/2]}>
+          <planeGeometry args={[PITCH.penaltyAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltyAreaLength/2, 0.01, PITCH.penaltyAreaWidth/2]}>
+          <planeGeometry args={[PITCH.penaltyAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Goal area box */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, 0]}>
+          <planeGeometry args={[PITCH.lineWidth, PITCH.goalAreaWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, -PITCH.goalAreaWidth/2]}>
+          <planeGeometry args={[PITCH.goalAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.goalAreaLength/2, 0.01, PITCH.goalAreaWidth/2]}>
+          <planeGeometry args={[PITCH.goalAreaLength, PITCH.lineWidth]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Penalty spot */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[PITCH.penaltySpotDistance, 0.01, 0]}>
+          <circleGeometry args={[0.2, 32]} />
+          <meshStandardMaterial color="white" />
+        </mesh>
+
+        {/* Penalty arc */}
+        <CircleLine
+          x={PITCH.penaltySpotDistance}
+          z={0}
+          radius={PITCH.penaltyArcRadius}
+          startAngle={-Math.acos((PITCH.penaltyAreaLength - PITCH.penaltySpotDistance) / PITCH.penaltyArcRadius)}
+          endAngle={Math.acos((PITCH.penaltyAreaLength - PITCH.penaltySpotDistance) / PITCH.penaltyArcRadius)}
+        />
+      </group>
+
+      {/* Corner arcs */}
+      <CircleLine x={-halfLength} z={-halfWidth} radius={PITCH.cornerArcRadius} startAngle={0} endAngle={Math.PI/2} />
+      <CircleLine x={-halfLength} z={halfWidth} radius={PITCH.cornerArcRadius} startAngle={-Math.PI/2} endAngle={0} />
+      <CircleLine x={halfLength} z={-halfWidth} radius={PITCH.cornerArcRadius} startAngle={Math.PI/2} endAngle={Math.PI} />
+      <CircleLine x={halfLength} z={halfWidth} radius={PITCH.cornerArcRadius} startAngle={Math.PI} endAngle={Math.PI*1.5} />
+    </group>
+  )
+}
+
+// ===========================================
+// GOAL COMPONENT
+// ===========================================
+function Goal({ position, rotation = 0 }) {
+  const postRadius = 0.06  // 6cm diameter posts
+  const netColor = '#ffffff'
+
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {/* Left post */}
+      <mesh position={[0, PITCH.goalHeight/2, -PITCH.goalWidth/2]} castShadow>
+        <cylinderGeometry args={[postRadius, postRadius, PITCH.goalHeight, 16]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+
+      {/* Right post */}
+      <mesh position={[0, PITCH.goalHeight/2, PITCH.goalWidth/2]} castShadow>
+        <cylinderGeometry args={[postRadius, postRadius, PITCH.goalHeight, 16]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+
+      {/* Crossbar */}
+      <mesh position={[0, PITCH.goalHeight, 0]} rotation={[Math.PI/2, 0, 0]} castShadow>
+        <cylinderGeometry args={[postRadius, postRadius, PITCH.goalWidth, 16]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+
+      {/* Back posts */}
+      <mesh position={[-PITCH.goalDepth, PITCH.goalHeight/2, -PITCH.goalWidth/2]} castShadow>
+        <cylinderGeometry args={[postRadius/2, postRadius/2, PITCH.goalHeight, 8]} />
+        <meshStandardMaterial color="#888888" />
+      </mesh>
+      <mesh position={[-PITCH.goalDepth, PITCH.goalHeight/2, PITCH.goalWidth/2]} castShadow>
+        <cylinderGeometry args={[postRadius/2, postRadius/2, PITCH.goalHeight, 8]} />
+        <meshStandardMaterial color="#888888" />
+      </mesh>
+
+      {/* Top back bar */}
+      <mesh position={[-PITCH.goalDepth, PITCH.goalHeight, 0]} rotation={[Math.PI/2, 0, 0]}>
+        <cylinderGeometry args={[postRadius/2, postRadius/2, PITCH.goalWidth, 8]} />
+        <meshStandardMaterial color="#888888" />
+      </mesh>
+
+      {/* Side support bars */}
+      <mesh position={[-PITCH.goalDepth/2, PITCH.goalHeight, -PITCH.goalWidth/2]} rotation={[0, 0, Math.PI/2]}>
+        <cylinderGeometry args={[postRadius/2, postRadius/2, PITCH.goalDepth, 8]} />
+        <meshStandardMaterial color="#888888" />
+      </mesh>
+      <mesh position={[-PITCH.goalDepth/2, PITCH.goalHeight, PITCH.goalWidth/2]} rotation={[0, 0, Math.PI/2]}>
+        <cylinderGeometry args={[postRadius/2, postRadius/2, PITCH.goalDepth, 8]} />
+        <meshStandardMaterial color="#888888" />
+      </mesh>
+
+      {/* Net - back */}
+      <mesh position={[-PITCH.goalDepth, PITCH.goalHeight/2, 0]}>
+        <planeGeometry args={[0.01, PITCH.goalHeight, PITCH.goalWidth]} />
+        <meshStandardMaterial color={netColor} transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Net - left side */}
+      <mesh position={[-PITCH.goalDepth/2, PITCH.goalHeight/2, -PITCH.goalWidth/2]} rotation={[0, Math.PI/2, 0]}>
+        <planeGeometry args={[PITCH.goalDepth, PITCH.goalHeight]} />
+        <meshStandardMaterial color={netColor} transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Net - right side */}
+      <mesh position={[-PITCH.goalDepth/2, PITCH.goalHeight/2, PITCH.goalWidth/2]} rotation={[0, Math.PI/2, 0]}>
+        <planeGeometry args={[PITCH.goalDepth, PITCH.goalHeight]} />
+        <meshStandardMaterial color={netColor} transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Net - top */}
+      <mesh position={[-PITCH.goalDepth/2, PITCH.goalHeight, 0]} rotation={[Math.PI/2, 0, 0]}>
+        <planeGeometry args={[PITCH.goalDepth, PITCH.goalWidth]} />
+        <meshStandardMaterial color={netColor} transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  )
+}
+
+// ===========================================
+// CORNER FLAG COMPONENT
+// ===========================================
+function CornerFlag({ position }) {
+  const poleHeight = 1.5
+  const poleRadius = 0.015
+  const flagWidth = 0.4
+  const flagHeight = 0.3
+
+  return (
+    <group position={position}>
+      {/* Pole */}
+      <mesh position={[0, poleHeight/2, 0]} castShadow>
+        <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 8]} />
+        <meshStandardMaterial color="#ffcc00" />
+      </mesh>
+
+      {/* Flag */}
+      <mesh position={[flagWidth/2, poleHeight - flagHeight/2, 0]}>
+        <planeGeometry args={[flagWidth, flagHeight]} />
+        <meshStandardMaterial color="#ff4444" side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  )
+}
+
+// ===========================================
+// BOUNDARY FENCE COMPONENT
+// ===========================================
+function BoundaryFence() {
+  const fenceHeight = 1.2
+  const postSpacing = 3
+  const halfLength = PITCH.length / 2 + PITCH.boundaryDistance
+  const halfWidth = PITCH.width / 2 + PITCH.boundaryDistance
+
+  const posts = []
+  const rails = []
+
+  // Generate posts along all sides
+  for (let x = -halfLength; x <= halfLength; x += postSpacing) {
+    posts.push([x, -halfWidth])
+    posts.push([x, halfWidth])
+  }
+  for (let z = -halfWidth; z <= halfWidth; z += postSpacing) {
+    posts.push([-halfLength, z])
+    posts.push([halfLength, z])
+  }
+
+  return (
+    <group>
+      {/* Posts */}
+      {posts.map((pos, i) => (
+        <mesh key={`post-${i}`} position={[pos[0], fenceHeight/2, pos[1]]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, fenceHeight, 8]} />
+          <meshStandardMaterial color="#333333" />
+        </mesh>
+      ))}
+
+      {/* Rails - long sides */}
+      <mesh position={[0, fenceHeight * 0.3, -halfWidth]}>
+        <boxGeometry args={[halfLength * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[0, fenceHeight * 0.7, -halfWidth]}>
+        <boxGeometry args={[halfLength * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[0, fenceHeight * 0.3, halfWidth]}>
+        <boxGeometry args={[halfLength * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[0, fenceHeight * 0.7, halfWidth]}>
+        <boxGeometry args={[halfLength * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+
+      {/* Rails - short sides */}
+      <mesh position={[-halfLength, fenceHeight * 0.3, 0]} rotation={[0, Math.PI/2, 0]}>
+        <boxGeometry args={[halfWidth * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[-halfLength, fenceHeight * 0.7, 0]} rotation={[0, Math.PI/2, 0]}>
+        <boxGeometry args={[halfWidth * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[halfLength, fenceHeight * 0.3, 0]} rotation={[0, Math.PI/2, 0]}>
+        <boxGeometry args={[halfWidth * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+      <mesh position={[halfLength, fenceHeight * 0.7, 0]} rotation={[0, Math.PI/2, 0]}>
+        <boxGeometry args={[halfWidth * 2, 0.05, 0.05]} />
+        <meshStandardMaterial color="#444444" />
+      </mesh>
+    </group>
+  )
+}
+
+// ===========================================
+// PLAYER CONTROLLER WITH FIRST-PERSON CAMERA
+// ===========================================
+function Player({ keysRef, speedRef }) {
+  const { camera } = useThree()
+  const playerRef = useRef({
+    position: new THREE.Vector3(0, 0, 0),
+    rotation: 0,  // Y-axis rotation (facing direction)
+    velocity: 0,  // Current forward velocity
+  })
+
+  // Shadow/indicator for player position
+  const shadowRef = useRef()
+
+  useFrame((state, delta) => {
+    const player = playerRef.current
+    const keys = keysRef.current
+
+    // Clamp delta to prevent physics issues on frame drops
+    const dt = Math.min(delta, 0.1)
+
+    // Calculate turn speed based on velocity (slower turns at higher speed)
+    const speedRatio = Math.abs(player.velocity) / PLAYER.maxSpeed
+    const turnSpeed = PLAYER.turnSpeedBase - (PLAYER.turnSpeedBase - PLAYER.turnSpeedMin) * speedRatio
+
+    // Handle turning
+    if (keys.left) {
+      player.rotation += turnSpeed * dt
+    }
+    if (keys.right) {
+      player.rotation -= turnSpeed * dt
+    }
+
+    // Handle acceleration/deceleration
+    if (keys.up) {
+      // Accelerate forward
+      player.velocity = Math.min(player.velocity + PLAYER.acceleration * dt, PLAYER.maxSpeed)
+    } else if (keys.down) {
+      // Brake / reverse slowly
+      if (player.velocity > 0) {
+        player.velocity = Math.max(player.velocity - PLAYER.deceleration * dt, 0)
+      } else {
+        // Allow slow reverse
+        player.velocity = Math.max(player.velocity - PLAYER.acceleration * 0.3 * dt, -PLAYER.maxSpeed * 0.3)
+      }
+    } else {
+      // Natural deceleration when no keys pressed
+      if (player.velocity > 0) {
+        player.velocity = Math.max(player.velocity - PLAYER.naturalDeceleration * dt, 0)
+      } else if (player.velocity < 0) {
+        player.velocity = Math.min(player.velocity + PLAYER.naturalDeceleration * dt, 0)
+      }
+    }
+
+    // Calculate movement direction
+    const moveX = Math.sin(player.rotation) * player.velocity * dt
+    const moveZ = Math.cos(player.rotation) * player.velocity * dt
+
+    // Update position
+    player.position.x -= moveX
+    player.position.z -= moveZ
+
+    // Boundary collision (keep player within fence)
+    const boundaryX = PITCH.length / 2 + PITCH.boundaryDistance - 0.5
+    const boundaryZ = PITCH.width / 2 + PITCH.boundaryDistance - 0.5
+
+    if (player.position.x < -boundaryX) {
+      player.position.x = -boundaryX
+      player.velocity *= 0.5
+    }
+    if (player.position.x > boundaryX) {
+      player.position.x = boundaryX
+      player.velocity *= 0.5
+    }
+    if (player.position.z < -boundaryZ) {
+      player.position.z = -boundaryZ
+      player.velocity *= 0.5
+    }
+    if (player.position.z > boundaryZ) {
+      player.position.z = boundaryZ
+      player.velocity *= 0.5
+    }
+
+    // Update camera position and rotation
+    camera.position.set(
+      player.position.x,
+      PLAYER.eyeHeight,
+      player.position.z
+    )
+    camera.rotation.order = 'YXZ'
+    camera.rotation.y = player.rotation
+    camera.rotation.x = 0
+    camera.rotation.z = 0
+
+    // Update shadow position
+    if (shadowRef.current) {
+      shadowRef.current.position.x = player.position.x
+      shadowRef.current.position.z = player.position.z
+    }
+
+    // Update speed for HUD
+    if (speedRef) {
+      speedRef.current = Math.abs(player.velocity)
+    }
+  })
+
+  return (
+    <group>
+      {/* Player shadow/feet indicator */}
+      <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <circleGeometry args={[0.3, 32]} />
+        <meshStandardMaterial color="#000000" transparent opacity={0.3} />
+      </mesh>
+    </group>
+  )
+}
+
+// ===========================================
+// GAME SCENE
+// ===========================================
+function GameScene({ keysRef, speedRef }) {
+  const halfLength = PITCH.length / 2
+  const halfWidth = PITCH.width / 2
+
+  return (
+    <>
+      {/* Lighting */}
+      <ambientLight intensity={0.6} />
+      <directionalLight
+        position={[50, 100, 50]}
+        intensity={1}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-80}
+        shadow-camera-right={80}
+        shadow-camera-top={80}
+        shadow-camera-bottom={-80}
+      />
+
+      {/* Sky */}
+      <Sky sunPosition={[100, 100, 20]} />
+
+      {/* Grass field */}
+      <GrassField />
+
+      {/* Pitch markings */}
+      <PitchMarkings />
+
+      {/* Goals */}
+      <Goal position={[-halfLength, 0, 0]} rotation={0} />
+      <Goal position={[halfLength, 0, 0]} rotation={Math.PI} />
+
+      {/* Corner flags */}
+      <CornerFlag position={[-halfLength, 0, -halfWidth]} />
+      <CornerFlag position={[-halfLength, 0, halfWidth]} />
+      <CornerFlag position={[halfLength, 0, -halfWidth]} />
+      <CornerFlag position={[halfLength, 0, halfWidth]} />
+
+      {/* Boundary fence */}
+      <BoundaryFence />
+
+      {/* Player controller */}
+      <Player keysRef={keysRef} speedRef={speedRef} />
+    </>
+  )
+}
+
+// ===========================================
+// HUD OVERLAY
+// ===========================================
+function HUD({ keysRef, speedRef }) {
+  const [speed, setSpeed] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (speedRef.current !== undefined) {
+        setSpeed(speedRef.current)
+      }
+    }, 100)
+    return () => clearInterval(interval)
+  }, [speedRef])
+
+  return (
+    <div style={hudStyle}>
+      <div style={controlsInfoStyle}>
+        <div style={controlsTitleStyle}>Controls</div>
+        <div style={controlItemStyle}>
+          <span style={keyStyle}>↑</span> Accelerate
+        </div>
+        <div style={controlItemStyle}>
+          <span style={keyStyle}>↓</span> Brake/Reverse
+        </div>
+        <div style={controlItemStyle}>
+          <span style={keyStyle}>←</span> Turn Left
+        </div>
+        <div style={controlItemStyle}>
+          <span style={keyStyle}>→</span> Turn Right
+        </div>
+      </div>
+
+      <div style={speedometerStyle}>
+        <div style={speedValueStyle}>{(speed * 3.6).toFixed(1)}</div>
+        <div style={speedUnitStyle}>km/h</div>
       </div>
     </div>
   )
 }
 
-function ProfileDropdown({ onAdminClick, onErrorLogClick }) {
-  const { currentUser, logout, canAccessAdmin, userProfile } = useAuth()
-  const { errorLog } = useToast()
-  const [isOpen, setIsOpen] = useState(false)
-  const dropdownRef = useRef(null)
+// ===========================================
+// MAIN APP COMPONENT
+// ===========================================
+function App() {
+  const keysRef = useRef({ up: false, down: false, left: false, right: false })
+  const speedRef = useRef(0)
 
-  // Close dropdown when clicking outside
+  // Handle keyboard input
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false)
+    const handleKeyDown = (e) => {
+      switch (e.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+          keysRef.current.up = true
+          e.preventDefault()
+          break
+        case 'ArrowDown':
+        case 'KeyS':
+          keysRef.current.down = true
+          e.preventDefault()
+          break
+        case 'ArrowLeft':
+        case 'KeyA':
+          keysRef.current.left = true
+          e.preventDefault()
+          break
+        case 'ArrowRight':
+        case 'KeyD':
+          keysRef.current.right = true
+          e.preventDefault()
+          break
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+
+    const handleKeyUp = (e) => {
+      switch (e.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+          keysRef.current.up = false
+          break
+        case 'ArrowDown':
+        case 'KeyS':
+          keysRef.current.down = false
+          break
+        case 'ArrowLeft':
+        case 'KeyA':
+          keysRef.current.left = false
+          break
+        case 'ArrowRight':
+        case 'KeyD':
+          keysRef.current.right = false
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
   }, [])
 
-  // Get initials from email
-  const getInitials = (email) => {
-    if (!email) return '?'
-    const name = email.split('@')[0]
-    return name.substring(0, 2).toUpperCase()
-  }
-
-  const handleAdminClick = () => {
-    setIsOpen(false)
-    onAdminClick()
-  }
-
-  const handleErrorLogClick = () => {
-    setIsOpen(false)
-    onErrorLogClick()
-  }
-
   return (
-    <div ref={dropdownRef} style={profileContainerStyle}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        style={profileButtonStyle}
-        title={currentUser.email}
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <Canvas
+        shadows
+        camera={{ fov: 75, near: 0.1, far: 1000 }}
+        style={{ background: '#87CEEB' }}
       >
-        {currentUser.photoURL ? (
-          <img
-            src={currentUser.photoURL}
-            alt="Profile"
-            style={profileImageStyle}
-          />
-        ) : (
-          <div style={profileInitialsStyle}>
-            {getInitials(currentUser.email)}
-          </div>
-        )}
-      </button>
-
-      {isOpen && (
-        <div style={dropdownMenuStyle}>
-          <div style={dropdownEmailStyle}>
-            {userProfile?.name || currentUser.email}
-            {userProfile?.roles?.includes('admin') && (
-              <span style={adminBadgeStyle}>Admin</span>
-            )}
-            {userProfile?.roles?.includes('group_organiser') && !userProfile?.roles?.includes('admin') && (
-              <span style={organiserBadgeStyle}>Organiser</span>
-            )}
-          </div>
-          {canAccessAdmin() && (
-            <button onClick={handleAdminClick} style={adminButtonStyle}>
-              Admin Panel
-            </button>
-          )}
-          <button onClick={handleErrorLogClick} style={errorLogButtonStyle}>
-            Error Log {errorLog.length > 0 && <span style={errorCountBadgeStyle}>{errorLog.length}</span>}
-          </button>
-          <button onClick={logout} style={signOutButtonStyle}>
-            Sign Out
-          </button>
-        </div>
-      )}
+        <GameScene keysRef={keysRef} speedRef={speedRef} />
+      </Canvas>
+      <HUD keysRef={keysRef} speedRef={speedRef} />
     </div>
   )
 }
 
-// Screen states: 'lobby' | 'team-select' | 'player-select' | 'waiting' | 'game' | 'admin'
-function AppContent() {
-  const { currentUser } = useAuth()
-  const [screen, setScreen] = useState('lobby')
-  const [currentMatchId, setCurrentMatchId] = useState(null)
-  const [currentMatchData, setCurrentMatchData] = useState(null)
-  const [isHomePlayer, setIsHomePlayer] = useState(true)
-  const [isPracticeMode, setIsPracticeMode] = useState(false)
-  const [selectedTeam, setSelectedTeam] = useState(null)
-  const [selectedPlayers, setSelectedPlayers] = useState([])
-  const [showErrorLog, setShowErrorLog] = useState(false)
-
-  // Load saved team and squad selection from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedTeamId = localStorage.getItem(STORAGE_KEYS.SELECTED_TEAM_ID)
-      const savedPlayerNumbers = localStorage.getItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS)
-
-      if (savedTeamId) {
-        const team = getTeamById(savedTeamId)
-        if (team) {
-          if (savedPlayerNumbers) {
-            const playerNumbers = JSON.parse(savedPlayerNumbers)
-            const players = playerNumbers
-              .map(num => team.players.find(p => p.number === num))
-              .filter(Boolean)
-
-            if (players.length === 6) {
-              setSelectedTeam({ ...team, selectedPlayers: players })
-              setSelectedPlayers(players)
-            } else {
-              // Invalid saved players, just set the team
-              setSelectedTeam(team)
-            }
-          } else {
-            setSelectedTeam(team)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved team selection:', error)
-    }
-  }, [])
-
-  if (!currentUser) {
-    return <AuthScreen />
-  }
-
-  const handleAdminClick = () => {
-    setScreen('admin')
-  }
-
-  const handleErrorLogClick = () => {
-    setShowErrorLog(true)
-  }
-
-  const handleMatchCreated = (matchId, matchData) => {
-    setCurrentMatchId(matchId)
-    setCurrentMatchData(matchData)
-    setIsHomePlayer(true)
-    setScreen('waiting')
-  }
-
-  const handleMatchAccepted = (matchId, matchData) => {
-    setCurrentMatchId(matchId)
-    setCurrentMatchData(matchData)
-    setIsHomePlayer(false)
-    setScreen('waiting')
-  }
-
-  const handleStartGame = (matchData) => {
-    setCurrentMatchData(matchData)
-    setScreen('game')
-  }
-
-  const handleCancelMatch = () => {
-    setCurrentMatchId(null)
-    setCurrentMatchData(null)
-    setScreen('lobby')
-  }
-
-  const handleBackToLobby = () => {
-    setCurrentMatchId(null)
-    setCurrentMatchData(null)
-    setIsPracticeMode(false)
-    setScreen('lobby')
-  }
-
-  const handlePracticeMatch = () => {
-    if (!selectedTeam) return
-    setCurrentMatchId(null)
-    setCurrentMatchData(null)
-    setIsHomePlayer(true)
-    setIsPracticeMode(true)
-    setScreen('game')
-  }
-
-  const handleEditTeam = () => {
-    setScreen('team-select')
-  }
-
-  const handleTeamSelected = (team) => {
-    setSelectedTeam(team)
-    // Save team ID to localStorage
-    try {
-      localStorage.setItem(STORAGE_KEYS.SELECTED_TEAM_ID, team.id)
-      // Clear previous player selection when changing teams
-      localStorage.removeItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS)
-    } catch (error) {
-      console.error('Error saving team selection:', error)
-    }
-    setScreen('player-select')
-  }
-
-  const handlePlayersSelected = (team, players) => {
-    setSelectedTeam({ ...team, selectedPlayers: players })
-    setSelectedPlayers(players)
-    // Save player numbers to localStorage
-    try {
-      const playerNumbers = players.map(p => p.number)
-      localStorage.setItem(STORAGE_KEYS.SELECTED_PLAYER_NUMBERS, JSON.stringify(playerNumbers))
-    } catch (error) {
-      console.error('Error saving player selection:', error)
-    }
-    setScreen('lobby')
-  }
-
-  const handleBackToTeamSelect = () => {
-    setScreen('team-select')
-  }
-
-  const handleBackFromTeamSelect = () => {
-    setScreen('lobby')
-  }
-
-  return (
-    <SettingsProvider>
-      <MatchProvider>
-        <GameProvider>
-          <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
-            {screen !== 'admin' && <ProfileDropdown onAdminClick={handleAdminClick} onErrorLogClick={handleErrorLogClick} />}
-            {showErrorLog && <ErrorLogModal onClose={() => setShowErrorLog(false)} />}
-
-            {screen === 'lobby' && (
-              <MatchLobby
-                onMatchCreated={handleMatchCreated}
-                onMatchAccepted={handleMatchAccepted}
-                onPracticeMatch={handlePracticeMatch}
-                onEditTeam={handleEditTeam}
-                selectedTeam={selectedTeam}
-              />
-            )}
-
-            {screen === 'team-select' && (
-              <TeamSelection
-                onTeamSelected={handleTeamSelected}
-                onBack={handleBackFromTeamSelect}
-              />
-            )}
-
-            {screen === 'player-select' && (
-              <PlayerSelection
-                team={selectedTeam}
-                onPlayersSelected={handlePlayersSelected}
-                onBack={handleBackToTeamSelect}
-              />
-            )}
-
-            {screen === 'waiting' && (
-              <WaitingRoom
-                matchId={currentMatchId}
-                matchData={currentMatchData}
-                isHomePlayer={isHomePlayer}
-                onStartGame={handleStartGame}
-                onCancel={handleCancelMatch}
-              />
-            )}
-
-            {screen === 'game' && (
-              <GameWrapper
-                matchId={currentMatchId}
-                matchData={currentMatchData}
-                isHomePlayer={isHomePlayer}
-                isPractice={isPracticeMode}
-                selectedTeam={selectedTeam}
-                selectedPlayers={selectedPlayers}
-                onBackToLobby={handleBackToLobby}
-              />
-            )}
-
-            {screen === 'admin' && (
-              <AdminPanel onBack={handleBackToLobby} />
-            )}
-          </div>
-        </GameProvider>
-      </MatchProvider>
-    </SettingsProvider>
-  )
-}
-
-// Wrapper to pass multiplayer props to Game
-function GameWrapper({ matchId, matchData, isHomePlayer, isPractice, selectedTeam, selectedPlayers, onBackToLobby }) {
-  const { startMultiplayerMatch } = useMatch()
-
-  useEffect(() => {
-    if (matchId && matchData) {
-      startMultiplayerMatch(matchId, matchData, isHomePlayer)
-    }
-  }, [matchId, matchData, isHomePlayer, startMultiplayerMatch])
-
-  return (
-    <Game
-      matchId={matchId}
-      matchData={matchData}
-      isHomePlayer={isHomePlayer}
-      isPractice={isPractice}
-      selectedTeam={selectedTeam}
-      selectedPlayers={selectedPlayers}
-      onBackToLobby={onBackToLobby}
-    />
-  )
-}
-
-const profileContainerStyle = {
+// ===========================================
+// STYLES
+// ===========================================
+const hudStyle = {
   position: 'absolute',
-  top: '10px',
-  right: '10px',
-  zIndex: 1000,
-}
-
-const profileButtonStyle = {
-  width: '36px',
-  height: '36px',
-  borderRadius: '50%',
-  border: '2px solid rgba(255, 255, 255, 0.3)',
-  background: 'transparent',
-  padding: 0,
-  cursor: 'pointer',
-  overflow: 'hidden',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
-const profileImageStyle = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  borderRadius: '50%',
-}
-
-const profileInitialsStyle = {
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#4a5568',
-  color: 'white',
-  fontSize: '14px',
-  fontWeight: 'bold',
-  fontFamily: 'sans-serif',
-}
-
-const dropdownMenuStyle = {
-  position: 'absolute',
-  top: '44px',
-  right: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  borderRadius: '8px',
-  padding: '8px',
-  minWidth: '160px',
-  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-  border: '1px solid #333',
-}
-
-const dropdownEmailStyle = {
-  color: '#aaa',
-  fontSize: '12px',
-  padding: '8px 12px',
-  borderBottom: '1px solid #333',
-  marginBottom: '4px',
-  wordBreak: 'break-all',
-  fontFamily: 'sans-serif',
-}
-
-const signOutButtonStyle = {
-  width: '100%',
-  padding: '8px 12px',
-  fontSize: '14px',
-  color: 'white',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontFamily: 'sans-serif',
-}
-
-const adminButtonStyle = {
-  width: '100%',
-  padding: '8px 12px',
-  fontSize: '14px',
-  color: 'white',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontFamily: 'sans-serif',
-}
-
-const errorLogButtonStyle = {
-  width: '100%',
-  padding: '8px 12px',
-  fontSize: '14px',
-  color: 'white',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontFamily: 'sans-serif',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-}
-
-const errorCountBadgeStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minWidth: '18px',
-  height: '18px',
-  padding: '0 5px',
-  fontSize: '11px',
-  fontWeight: 'bold',
-  backgroundColor: '#e74c3c',
-  color: 'white',
-  borderRadius: '9px',
-}
-
-const adminBadgeStyle = {
-  display: 'inline-block',
-  marginLeft: '8px',
-  padding: '2px 6px',
-  fontSize: '10px',
-  fontWeight: 'bold',
-  backgroundColor: '#e74c3c',
-  color: 'white',
-  borderRadius: '4px',
-  textTransform: 'uppercase',
-}
-
-const organiserBadgeStyle = {
-  display: 'inline-block',
-  marginLeft: '8px',
-  padding: '2px 6px',
-  fontSize: '10px',
-  fontWeight: 'bold',
-  backgroundColor: '#3498db',
-  color: 'white',
-  borderRadius: '4px',
-  textTransform: 'uppercase',
-}
-
-const errorLogOverlayStyle = {
-  position: 'fixed',
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 2000,
+  pointerEvents: 'none',
+  fontFamily: 'sans-serif',
 }
 
-const errorLogModalStyle = {
-  backgroundColor: '#1a1a2e',
-  borderRadius: '12px',
-  width: '90%',
-  maxWidth: '600px',
-  maxHeight: '80vh',
-  display: 'flex',
-  flexDirection: 'column',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-  border: '1px solid #333',
-}
-
-const errorLogHeaderStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '16px 20px',
-  borderBottom: '1px solid #333',
-}
-
-const errorLogTitleStyle = {
-  margin: 0,
+const controlsInfoStyle = {
+  position: 'absolute',
+  top: '20px',
+  left: '20px',
+  background: 'rgba(0, 0, 0, 0.7)',
+  padding: '15px 20px',
+  borderRadius: '10px',
   color: 'white',
-  fontSize: '18px',
+}
+
+const controlsTitleStyle = {
+  fontSize: '16px',
   fontWeight: 'bold',
-  fontFamily: 'sans-serif',
+  marginBottom: '10px',
+  borderBottom: '1px solid rgba(255,255,255,0.3)',
+  paddingBottom: '8px',
 }
 
-const errorLogCloseButtonStyle = {
-  background: 'transparent',
-  border: 'none',
-  color: '#aaa',
-  fontSize: '20px',
-  cursor: 'pointer',
-  padding: '4px 8px',
-}
-
-const errorLogEmptyStyle = {
-  padding: '40px 20px',
-  textAlign: 'center',
-  color: '#888',
+const controlItemStyle = {
   fontSize: '14px',
-  fontFamily: 'sans-serif',
-}
-
-const errorLogListStyle = {
-  flex: 1,
-  overflowY: 'auto',
-  padding: '12px 20px',
-}
-
-const errorLogEntryStyle = {
-  padding: '12px',
-  backgroundColor: 'rgba(220, 53, 69, 0.1)',
-  borderRadius: '8px',
-  marginBottom: '8px',
-  borderLeft: '3px solid #e74c3c',
-}
-
-const errorLogTimestampStyle = {
-  fontSize: '11px',
-  color: '#888',
-  marginBottom: '4px',
-  fontFamily: 'sans-serif',
-}
-
-const errorLogMessageStyle = {
-  fontSize: '13px',
-  color: '#eee',
-  fontFamily: 'sans-serif',
-  wordBreak: 'break-word',
-}
-
-const errorLogFooterStyle = {
-  padding: '12px 20px',
-  borderTop: '1px solid #333',
+  marginBottom: '5px',
   display: 'flex',
-  justifyContent: 'flex-end',
+  alignItems: 'center',
+  gap: '10px',
 }
 
-const errorLogClearButtonStyle = {
-  padding: '8px 16px',
-  fontSize: '13px',
+const keyStyle = {
+  display: 'inline-block',
+  width: '24px',
+  height: '24px',
+  background: 'rgba(255,255,255,0.2)',
+  borderRadius: '4px',
+  textAlign: 'center',
+  lineHeight: '24px',
+  fontSize: '16px',
+}
+
+const speedometerStyle = {
+  position: 'absolute',
+  bottom: '30px',
+  right: '30px',
+  background: 'rgba(0, 0, 0, 0.7)',
+  padding: '20px 30px',
+  borderRadius: '15px',
+  textAlign: 'center',
   color: 'white',
-  backgroundColor: '#e74c3c',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontFamily: 'sans-serif',
 }
 
-function App() {
-  return (
-    <ToastProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </ToastProvider>
-  )
+const speedValueStyle = {
+  fontSize: '48px',
+  fontWeight: 'bold',
+  lineHeight: '1',
+}
+
+const speedUnitStyle = {
+  fontSize: '14px',
+  opacity: 0.7,
+  marginTop: '5px',
 }
 
 export default App
