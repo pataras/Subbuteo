@@ -651,8 +651,27 @@ function HUD({ keysRef, speedRef }) {
     return () => clearInterval(interval)
   }, [speedRef])
 
+  const handleHardRefresh = async () => {
+    // Clear caches if available
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+      } catch (e) {
+        console.log('Cache clear failed:', e)
+      }
+    }
+    // Force reload with cache busting
+    window.location.href = window.location.pathname + '?refresh=' + Date.now()
+  }
+
   return (
     <div style={hudStyle}>
+      {/* Hard Refresh Button */}
+      <button onClick={handleHardRefresh} style={refreshButtonStyle}>
+        Refresh
+      </button>
+
       <div style={controlsInfoStyle}>
         <div style={controlsTitleStyle}>Controls</div>
         <div style={controlItemStyle}>
@@ -826,6 +845,22 @@ const speedUnitStyle = {
   fontSize: '14px',
   opacity: 0.7,
   marginTop: '5px',
+}
+
+const refreshButtonStyle = {
+  position: 'absolute',
+  top: '20px',
+  right: '20px',
+  padding: '12px 20px',
+  fontSize: '14px',
+  fontWeight: 'bold',
+  color: 'white',
+  background: 'rgba(0, 0, 0, 0.7)',
+  border: '2px solid rgba(255, 255, 255, 0.3)',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  pointerEvents: 'auto',
+  transition: 'all 0.2s',
 }
 
 export default App
