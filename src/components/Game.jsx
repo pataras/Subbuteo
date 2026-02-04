@@ -663,7 +663,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
     const isMyTurn = isPractice || currentTurn === myTeam
     if (!isMyTurn) return
 
-    const forceMagnitude = 0.015 // Consistent force for button controls
+    const forceMagnitude = 0.08 // Force for button controls - visible movement
 
     // Direction mapping - forward is towards opponent's goal
     // For home team (positive Z spawn), forward is negative Z
@@ -1348,15 +1348,18 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           position: 'absolute',
           bottom: '20px',
           right: '20px',
-          zIndex: 100,
+          zIndex: 1000,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '4px'
+          gap: '4px',
+          pointerEvents: 'auto'
         }}>
           {/* Forward button (top) */}
           <button
-            onPointerDown={() => { setActiveButton('forward'); movePlayer('forward'); }}
+            type="button"
+            onClick={() => movePlayer('forward')}
+            onPointerDown={() => setActiveButton('forward')}
             onPointerUp={() => setActiveButton(null)}
             onPointerLeave={() => setActiveButton(null)}
             onTouchStart={(e) => { e.preventDefault(); setActiveButton('forward'); movePlayer('forward'); }}
@@ -1373,9 +1376,11 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              touchAction: 'none',
+              touchAction: 'manipulation',
               userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent'
+              WebkitTapHighlightColor: 'transparent',
+              WebkitUserSelect: 'none',
+              pointerEvents: 'auto'
             }}
           >
             ▲
@@ -1384,7 +1389,9 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
           {/* Bottom row: Left, Back, Right */}
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
-              onPointerDown={() => { setActiveButton('left'); movePlayer('left'); }}
+              type="button"
+              onClick={() => movePlayer('left')}
+              onPointerDown={() => setActiveButton('left')}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
               onTouchStart={(e) => { e.preventDefault(); setActiveButton('left'); movePlayer('left'); }}
@@ -1401,15 +1408,19 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                touchAction: 'none',
+                touchAction: 'manipulation',
                 userSelect: 'none',
-                WebkitTapHighlightColor: 'transparent'
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                pointerEvents: 'auto'
               }}
             >
               ◀
             </button>
             <button
-              onPointerDown={() => { setActiveButton('backward'); movePlayer('backward'); }}
+              type="button"
+              onClick={() => movePlayer('backward')}
+              onPointerDown={() => setActiveButton('backward')}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
               onTouchStart={(e) => { e.preventDefault(); setActiveButton('backward'); movePlayer('backward'); }}
@@ -1426,15 +1437,19 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                touchAction: 'none',
+                touchAction: 'manipulation',
                 userSelect: 'none',
-                WebkitTapHighlightColor: 'transparent'
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                pointerEvents: 'auto'
               }}
             >
               ▼
             </button>
             <button
-              onPointerDown={() => { setActiveButton('right'); movePlayer('right'); }}
+              type="button"
+              onClick={() => movePlayer('right')}
+              onPointerDown={() => setActiveButton('right')}
               onPointerUp={() => setActiveButton(null)}
               onPointerLeave={() => setActiveButton(null)}
               onTouchStart={(e) => { e.preventDefault(); setActiveButton('right'); movePlayer('right'); }}
@@ -1451,9 +1466,11 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                touchAction: 'none',
+                touchAction: 'manipulation',
                 userSelect: 'none',
-                WebkitTapHighlightColor: 'transparent'
+                WebkitTapHighlightColor: 'transparent',
+                WebkitUserSelect: 'none',
+                pointerEvents: 'auto'
               }}
             >
               ▶
@@ -1468,6 +1485,20 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         onClose={() => setShowSettings(false)}
         onApply={handleApplySettings}
       />
+
+      {/* Version number */}
+      <div style={{
+        position: 'absolute',
+        bottom: '5px',
+        left: '10px',
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: '11px',
+        fontFamily: 'sans-serif',
+        pointerEvents: 'none',
+        zIndex: 50
+      }}>
+        v0.1
+      </div>
     </div>
   )
 }
