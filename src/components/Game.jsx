@@ -1489,7 +1489,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
       {/* Version number */}
       <div style={{
         position: 'absolute',
-        bottom: '5px',
+        top: '5px',
         left: '10px',
         color: 'rgba(255,255,255,0.4)',
         fontSize: '11px',
@@ -1497,7 +1497,7 @@ function Game({ matchId, matchData, isHomePlayer = true, isPractice = false, sel
         pointerEvents: 'none',
         zIndex: 50
       }}>
-        v0.2
+        v0.3
       </div>
     </div>
   )
