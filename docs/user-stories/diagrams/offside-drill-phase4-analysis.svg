@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 340" width="840" height="680">
+  <title>Offside Drill - Phase 4: Analysis &amp; Explanation</title>
+  <desc>Educational breakdown of the offside rule with visual explanation</desc>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="420" height="340" fill="#1a1a2e"/>
+
+  <!-- Title -->
+  <rect x="10" y="10" width="400" height="40" fill="#16213e" rx="5"/>
+  <text x="210" y="38" font-family="Arial, sans-serif" font-size="18" fill="#FFFFFF" text-anchor="middle" font-weight="bold">OFFSIDE RULE EXPLAINED</text>
+
+  <!-- Mini pitch diagram -->
+  <rect x="20" y="60" width="180" height="110" fill="#228B22" rx="3"/>
+  <rect x="22" y="62" width="176" height="106" fill="none" stroke="#FFFFFF" stroke-width="1"/>
+  <line x1="110" y1="62" x2="110" y2="168" stroke="#FFFFFF" stroke-width="1"/>
+  <circle cx="110" cy="115" r="15" fill="none" stroke="#FFFFFF" stroke-width="1"/>
+
+  <!-- Mini players -->
+  <!-- Claret -->
+  <circle cx="60" cy="115" r="5" fill="#722F37" stroke="#F0E68C" stroke-width="1"/>
+  <text x="60" y="118" font-family="Arial, sans-serif" font-size="6" fill="#FFFFFF" text-anchor="middle">C1</text>
+  <circle cx="125" cy="140" r="5" fill="#722F37" stroke="#FF0000" stroke-width="2"/>
+  <text x="125" y="143" font-family="Arial, sans-serif" font-size="6" fill="#FFFFFF" text-anchor="middle">C3</text>
+
+  <!-- Blue defensive line -->
+  <circle cx="110" cy="90" r="5" fill="#1E90FF"/>
+  <circle cx="110" cy="115" r="5" fill="#1E90FF"/>
+  <circle cx="110" cy="140" r="5" fill="#1E90FF"/>
+
+  <!-- Offside line on mini pitch -->
+  <line x1="110" y1="62" x2="110" y2="168" stroke="#FF0000" stroke-width="2" stroke-dasharray="4,2"/>
+
+  <!-- Ball trajectory -->
+  <line x1="65" y1="112" x2="120" y2="138" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <!-- Rule explanation boxes -->
+
+  <!-- Box 1: The Rule -->
+  <rect x="220" y="60" width="190" height="55" fill="#16213e" rx="5" stroke="#4a4a6a" stroke-width="1"/>
+  <text x="315" y="78" font-family="Arial, sans-serif" font-size="11" fill="#FFD700" text-anchor="middle" font-weight="bold">THE RULE</text>
+  <text x="230" y="93" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">A player is offside if they are:</text>
+  <text x="230" y="105" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">• Ahead of the second-last defender</text>
+
+  <!-- Box 2: Key Moment -->
+  <rect x="220" y="120" width="190" height="55" fill="#16213e" rx="5" stroke="#4a4a6a" stroke-width="1"/>
+  <text x="315" y="138" font-family="Arial, sans-serif" font-size="11" fill="#FFD700" text-anchor="middle" font-weight="bold">KEY MOMENT</text>
+  <text x="230" y="153" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">Position is judged at the moment</text>
+  <text x="230" y="165" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">the ball is played, NOT received.</text>
+
+  <!-- Box 3: Second-Last Defender -->
+  <rect x="20" y="180" width="180" height="70" fill="#16213e" rx="5" stroke="#4a4a6a" stroke-width="1"/>
+  <text x="110" y="198" font-family="Arial, sans-serif" font-size="11" fill="#FFD700" text-anchor="middle" font-weight="bold">SECOND-LAST DEFENDER</text>
+  <text x="30" y="215" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">Usually one outfield player +</text>
+  <text x="30" y="228" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">goalkeeper. In our drill (no GK),</text>
+  <text x="30" y="241" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">it's the deepest defensive line.</text>
+
+  <!-- Box 4: Not Offside If... -->
+  <rect x="220" y="180" width="190" height="70" fill="#16213e" rx="5" stroke="#00AA00" stroke-width="2"/>
+  <text x="315" y="198" font-family="Arial, sans-serif" font-size="11" fill="#00FF00" text-anchor="middle" font-weight="bold">NOT OFFSIDE IF:</text>
+  <text x="230" y="215" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">• Level with 2nd-last defender</text>
+  <text x="230" y="228" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">• In own half when ball played</text>
+  <text x="230" y="241" font-family="Arial, sans-serif" font-size="9" fill="#FFFFFF">• Behind the ball when played</text>
+
+  <!-- Visual comparison -->
+  <rect x="20" y="260" width="390" height="70" fill="#0f3460" rx="5"/>
+  <text x="215" y="280" font-family="Arial, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">TIMING COMPARISON</text>
+
+  <!-- OFFSIDE example -->
+  <rect x="30" y="290" width="170" height="30" fill="#3d0000" rx="3"/>
+  <circle cx="50" cy="305" r="8" fill="#722F37" stroke="#FF0000" stroke-width="2"/>
+  <text x="50" y="308" font-family="Arial, sans-serif" font-size="7" fill="#FFFFFF" text-anchor="middle">C3</text>
+  <line x1="80" y1="290" x2="80" y2="320" stroke="#FF0000" stroke-width="2"/>
+  <circle cx="100" cy="305" r="6" fill="#1E90FF"/>
+  <circle cx="120" cy="305" r="6" fill="#1E90FF"/>
+  <text x="155" y="310" font-family="Arial, sans-serif" font-size="10" fill="#FF6666" font-weight="bold">OFFSIDE</text>
+
+  <!-- ONSIDE example -->
+  <rect x="220" y="290" width="170" height="30" fill="#003d00" rx="3"/>
+  <line x1="270" y1="290" x2="270" y2="320" stroke="#FF0000" stroke-width="2"/>
+  <circle cx="260" cy="305" r="8" fill="#722F37" stroke="#00FF00" stroke-width="2"/>
+  <text x="260" y="308" font-family="Arial, sans-serif" font-size="7" fill="#FFFFFF" text-anchor="middle">C3</text>
+  <circle cx="290" cy="305" r="6" fill="#1E90FF"/>
+  <circle cx="310" cy="305" r="6" fill="#1E90FF"/>
+  <text x="355" y="310" font-family="Arial, sans-serif" font-size="10" fill="#66FF66" font-weight="bold">ONSIDE</text>
+
+  <!-- Phase indicator -->
+  <rect x="140" y="335" width="140" height="0" fill="rgba(255,255,255,0.1)" rx="5"/>
+</svg>
